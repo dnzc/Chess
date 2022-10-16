@@ -31,7 +31,7 @@ class Board {
     uint64_t getRookBishopMoveBoard(bool isRook, uint64_t blockerBoard, int square);
 
     // pawns, knights, bishops, rooks, queens, king; white, black: used as indices for m_pieces and m_symbols, for readability
-    enum BitboardIndex {
+    enum PiecesList {
       wp, wn, wb, wr, wq, wk,
       bp, bn, bb, br, bq, bk,
     };
