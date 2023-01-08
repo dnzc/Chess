@@ -153,6 +153,12 @@ void Position::makeMove(Move move) {
   else if(move.piece==wk) { m_whiteCastleKingside = false; m_whiteCastleQueenside = false; }
   else if(move.piece==bk) { m_blackCastleKingside = false; m_blackCastleQueenside = false; }
 
+  // if current move lands on an enemy starting rook square, remove corresponding castling rights
+  if(move.end == 7 && move.piece>=6) m_whiteCastleKingside = false;
+  else if(move.end == 0 && move.piece>=6) m_whiteCastleQueenside = false;
+  else if(move.end == 63 && move.piece<6) m_blackCastleKingside = false;
+  else if(move.end == 56 && move.piece<6) m_blackCastleQueenside = false;
+
   // if current move is castling, then move the rook
   if(move.castle) {
     // white kingside castle

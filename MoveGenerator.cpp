@@ -1,4 +1,4 @@
-#include "Movegen.h"
+#include "MoveGenerator.h"
 #include "Position.h"
 #include "Move.h"
 #include "Bitboard.h"
@@ -7,7 +7,7 @@
 #include <random>
 #include <vector>
 
-Movegen::Movegen() {
+MoveGenerator::MoveGenerator() {
 
   initKnightMoveTable();
   initKingMoveTable();
@@ -26,7 +26,7 @@ Movegen::Movegen() {
 }
 
 // calculate+store knight move lookup table
-void Movegen::initKnightMoveTable() {
+void MoveGenerator::initKnightMoveTable() {
   // knight moves
   int dx[] = {2, 2, -2, -2, 1, 1, -1, -1};
   int dy[] = {1, -1, 1, -1, 2, -2, 2, -2};
@@ -43,7 +43,7 @@ void Movegen::initKnightMoveTable() {
 }
 
 // calculate+store king move lookup table
-void Movegen::initKingMoveTable() {
+void MoveGenerator::initKingMoveTable() {
   // king moves
   int dx[] = {-1, -1, -1, 0, 1, 1, 1, 0};
   int dy[] = {-1, 0, 1, 1, 1, 0, -1, -1};
@@ -60,7 +60,7 @@ void Movegen::initKingMoveTable() {
 }
 
 // calculate+store blocker masks, for rooks or bishops
-void Movegen::initRookBishopBlockerMasks(bool isRook) {
+void MoveGenerator::initRookBishopBlockerMasks(bool isRook) {
   // for each square
   for(int i=0; i<64; ++i) {
     if(isRook) m_rookMasks[i] = 0;
@@ -91,12 +91,12 @@ void Movegen::initRookBishopBlockerMasks(bool isRook) {
 }
 
 // calculate+store sliding piece moves between two squares
-void Movegen::initPushMasks() {
+void MoveGenerator::initPushMasks() {
   // for each square
   for(int i=0; i<64; ++i) {
-    // each of the 8 directions
-    int dxs[] = {-1, 0, 1, 1, 1, 0, -1, -1};
-    int dys[] = {1, 1, 1, 0, -1, -1, -1, 0};
+    // each of the 8 directions (first 4 rook, last 4 bishop)
+    int dxs[] = {0, 0, 1, -1, 1, 1, -1, -1};
+    int dys[] = {1, -1, 0, 0, 1, -1, -1, 1};
     for(int k=0; k<8; ++k) {
       // move in direction specified by k, until arriving at the board edge
       int x = i&7;
@@ -110,14 +110,17 @@ void Movegen::initPushMasks() {
         if( x<0 || x>7 || y<0 || y>7) break;
         int index = y*8 + x;
         bb |= 1ull<<index;
-        m_pushMasks[i][index] = bb & ~(1ull<<i) & ~(1ull<<index); // remove start and end squares
+        if(k<4) // if rook
+          m_rookPushMasks[i][index] = bb & ~(1ull<<i) & ~(1ull<<index); // remove start and end squares
+        else
+          m_bishopPushMasks[i][index] = bb & ~(1ull<<i) & ~(1ull<<index); // remove start and end squares
       }
     }
   }
 }
 
 // given a mask of possible blocker positions, returns the index-th configuration of blockers (sorting lexicographically)
-Bitboard Movegen::getBlockerBoard(Bitboard mask, int index) {
+Bitboard MoveGenerator::getBlockerBoard(Bitboard mask, int index) {
   // turn index into binary then distribute its bits among where the mask indicates the bits should go
   Bitboard blockerBoard = mask;
   int bitIndex = 0;
@@ -134,7 +137,7 @@ Bitboard Movegen::getBlockerBoard(Bitboard mask, int index) {
 }
 
 // given an arrangement of blockers, calculate the set of (pseudo-)legal moves
-Bitboard Movegen::getRookBishopMoveBoard(bool isRook, Bitboard blockerBoard, int square) {
+Bitboard MoveGenerator::getRookBishopMoveBoard(bool isRook, Bitboard blockerBoard, int square) {
   Bitboard moveBoard = blockerBoard;
   int rookXChanges[] = {1, -1, 0, 0};
   int rookYChanges[] = {0, 0, 1, -1};
@@ -160,7 +163,7 @@ Bitboard Movegen::getRookBishopMoveBoard(bool isRook, Bitboard blockerBoard, int
   return moveBoard;
 }
 
-void Movegen::findRookBishopMagics(bool isRook) {
+void MoveGenerator::findRookBishopMagics(bool isRook) {
   std::cout << "finding magics...\n";
   // number of bits needed to store all possible blocker configurations, which equals the max number of potential blockers
   int bits = (isRook ? 12 : 9); // a rook has at most 12 potential blockers, bishop has at most 9
@@ -205,7 +208,7 @@ void Movegen::findRookBishopMagics(bool isRook) {
   }  
 }
 
-void Movegen::initRookBishopMoveTable(bool isRook) {
+void MoveGenerator::initRookBishopMoveTable(bool isRook) {
   // number of bits needed to store all possible blocker configurations, which equals the max number of potential blockers
   int bits = (isRook ? 12 : 9); // a rook has at most 12 potential blockers, bishop has at most 9
   int size = 1<<bits; // at most 2^bits possible blocker configurations: i.e. 4096 for rook, 512 for bishop
@@ -226,36 +229,36 @@ void Movegen::initRookBishopMoveTable(bool isRook) {
   }
 }
 
-Bitboard Movegen::rookMoves(int square, Bitboard occupancy) {
+Bitboard MoveGenerator::rookMoves(int square, Bitboard occupancy) {
   Bitboard blockerBoard = occupancy & m_rookMasks[square];
   Bitboard index = (m_rookMagics[square] * blockerBoard) >> (64 - 12);
   return m_rookMoves[square][index.getBits()];
 }
 
-Bitboard Movegen::bishopMoves(int square, Bitboard occupancy) {
+Bitboard MoveGenerator::bishopMoves(int square, Bitboard occupancy) {
   Bitboard blockerBoard = occupancy & m_bishopMasks[square];
   Bitboard index = (m_bishopMagics[square] * blockerBoard) >> (64 - 9);
   return m_bishopMoves[square][index.getBits()];
 }
 
-Bitboard Movegen::queenMoves(int square, Bitboard occupancy) {
+Bitboard MoveGenerator::queenMoves(int square, Bitboard occupancy) {
   // a queen can be treated as a rook and bishop on the same square
   return rookMoves(square, occupancy) | bishopMoves(square, occupancy);
 }
 
-Bitboard Movegen::pawnPushes(Bitboard pawns, bool isWhite, Bitboard occupancy) {
+Bitboard MoveGenerator::pawnPushes(Bitboard pawns, bool isWhite, Bitboard occupancy) {
   // bitwise shift by +-8 to get places the pawns could advance to
   Bitboard moves = isWhite ? pawns<<8 : pawns>>8;
   moves &= ~occupancy; // can't push to occupied square
 
   // factor in double pawn moves: if can move to third or sixth rank, then it must be the pawn's first move
-  moves |= isWhite ? (moves&thirdSixthRank)<<8 : (moves&thirdSixthRank)>>8;
+  moves |= isWhite ? (moves&thirdRank)<<8 : (moves&sixthRank)>>8;
   moves &= ~occupancy; // can't push to occupied square
 
   return moves;
 }
 
-Bitboard Movegen::pawnAttacks(Bitboard pawns, bool isWhite) {
+Bitboard MoveGenerator::pawnAttacks(Bitboard pawns, bool isWhite) {
   // bitwise shift left by 7 (or -9 if black) to get the captures to the left
   Bitboard leftAttacks = isWhite ? pawns<<7 : pawns>>9;
   leftAttacks &= notHFile; // a left capture can't be on the H file, fixes wraparound issues
@@ -266,13 +269,13 @@ Bitboard Movegen::pawnAttacks(Bitboard pawns, bool isWhite) {
   return leftAttacks | rightAttacks;
 }
 
-Bitboard Movegen::enPassantCaptures(Bitboard pawns) {
+Bitboard MoveGenerator::enPassantCaptures(Bitboard pawns) {
   Bitboard left = (pawns>>1) & notHFile; // a left capture can't be on the H file, fixes wraparound issues
   Bitboard right = (pawns<<1) & notAFile;
   return left | right;
 }
 
-Bitboard Movegen::getDangerSquares(Position& position) {
+Bitboard MoveGenerator::getDangerSquares(Position& position) {
   Bitboard dangerSquares = 0;
 
   bool isWhite = position.isWhiteToMove();
@@ -308,23 +311,24 @@ Bitboard Movegen::getDangerSquares(Position& position) {
   return dangerSquares;
 }
 
-Bitboard Movegen::getCheckingPieces(Position& position) {
+Bitboard MoveGenerator::getCheckingPieces(Position& position) {
   Bitboard checkers = 0;
   bool isWhite = position.isWhiteToMove();
   Bitboard occ = position.getWhiteOccupancy() | position.getBlackOccupancy();
   int kingSquare = position.getPieces(position.isWhiteToMove() ? wk : bk).getLsb();
 
-  // for each enemy piece type, pretend there is that piece type on the king square, then see if that piece can move to an actual enemy piece of that type
+  // for each piece type, pretend there is that piece type on the king square, then see if that piece cancapture an actual enemy piece of that type
+  // ignore kings because king can't check the other king
+  checkers |= pawnAttacks(1ull<<kingSquare, isWhite) & position.getPieces(isWhite ? bp : wp);
   checkers |= m_knightMoves[kingSquare] & position.getPieces(isWhite ? bn : wn);
   checkers |= bishopMoves(kingSquare, occ) & position.getPieces(isWhite ? bb : wb);
   checkers |= rookMoves(kingSquare, occ) & position.getPieces(isWhite ? br : wr);
   checkers |= queenMoves(kingSquare, occ) & position.getPieces(isWhite ? bq : wq) ;
-  checkers |= m_kingMoves[kingSquare] & position.getPieces(isWhite ? bk : wk);
 
   return checkers;
 }
 
-std::vector<Move> Movegen::genMoves(Position& position) {
+std::vector<Move> MoveGenerator::genMoves(Position& position) {
 
   std::vector<Move> moveList;
   bool isWhite = position.isWhiteToMove();
@@ -339,7 +343,7 @@ std::vector<Move> Movegen::genMoves(Position& position) {
   // if in single check
   if(checks.popcnt() == 1) {
     captureMask = checks;
-    pushMask = m_pushMasks[kingSquare][checks.getLsb()];
+    pushMask = m_rookPushMasks[kingSquare][checks.getLsb()] | m_bishopPushMasks[kingSquare][checks.getLsb()];
   }
 
   // king moves (only one king)
@@ -387,14 +391,15 @@ std::vector<Move> Movegen::genMoves(Position& position) {
     Bitboard enemyPieces = position.getPieces((PieceType)(t + isWhite*6));
     while(enemyPieces.popcnt()) {
       int slidingPiece = enemyPieces.popLsb();
-      Bitboard squaresBetween = m_pushMasks[kingSquare][slidingPiece];
+      Bitboard squaresBetween = 0;
+      if(t!=wb) squaresBetween |= m_rookPushMasks[kingSquare][slidingPiece];
+      if(t!=wr) squaresBetween |= m_bishopPushMasks[kingSquare][slidingPiece];
       Bitboard piecesBetween = squaresBetween & (own|enemy);
       if(piecesBetween.popcnt() == 1 && (piecesBetween&enemy) == 0) { // if only one piece in between, and that piece isn't an enemy piece
         pinnedPieces |= piecesBetween;
         // different piece types have different move options e.g. knights can never move when pinned
-        PieceType type = isWhite ? wp : bp;
-        Bitboard pawnBetween = squaresBetween & position.getPieces(type);
-        if(pawnBetween.popcnt()) {
+        PieceType type = position.whichPiece(piecesBetween.getLsb());
+        if(type==wp || type==bp) {
           // if the pinned piece is a pawn
           int index = piecesBetween.getLsb();
           Bitboard pushes = pawnPushes(piecesBetween, isWhite, occ) & squaresBetween;
@@ -405,45 +410,33 @@ std::vector<Move> Movegen::genMoves(Position& position) {
           // en passant moves
           Bitboard enPassant = position.getEnPassant();
           if(enPassant.popcnt()) {
-            Bitboard epPushes = attacks & enPassant & thirdSixthRank; // ep pushes (i.e. where the pawn ends up) must be on the third/sixth rank
+            Bitboard epPushes = attacks & enPassant & (thirdRank|sixthRank); // ep pushes (i.e. where the pawn ends up) must be on the third/sixth rank
             Bitboard epCaptures = enPassantCaptures(1ull<<index) & enPassant & fourthFifthRank; // ep captures (i.e. where the captured pawn is) must be on fourth/fifth rank
             Bitboard epMoves = isWhite ? (epCaptures&captureMask)<<8 : (epCaptures&captureMask)>>8;
             epMoves |= epPushes & pushMask & squaresBetween; // must push onto the same pin ray
             while(epMoves.popcnt()) moveList.push_back(Move(index, epMoves.popLsb(), type, true, false));
           }
-        } else if(t!=wr) { // bishop can't move if pinned by rook
-          PieceType type = isWhite ? wb : bb;
-          Bitboard bishopBetween = squaresBetween & position.getPieces(type);
-          if(bishopBetween.popcnt()) {
-            // if the pinned piece is a bishop
-            int index = piecesBetween.getLsb();
-            Bitboard moves = bishopMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
-            moves &= ~own;
-            moves = (moves & captureMask) | (moves & pushMask);
-            while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type , false, false));
-          }
-        } else if(t!=wb) { // rook can't move if pinned by bishop
-          PieceType type = isWhite ? wr : br;
-          Bitboard rookBetween = squaresBetween & position.getPieces(type);
-          if(rookBetween.popcnt()) {
-            // if the pinned piece is a rook
-            int index = piecesBetween.getLsb();
-            Bitboard moves = rookMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
-            moves &= ~own;
-            moves = (moves & captureMask) | (moves & pushMask);
-            while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type, false, false));
-          }
-        } else {
-          PieceType type = isWhite ? wq : bq;
-          Bitboard queenBetween = squaresBetween & position.getPieces(type);
-          if(queenBetween.popcnt()) {
-            // if the pinned piece is a queen
-            int index = piecesBetween.getLsb();
-            Bitboard moves = queenMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
-            moves &= ~own;
-            moves = (moves & captureMask) | (moves & pushMask);
-            while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type, false, false));
-          }
+        } else if(t!=wr && (type==wb || type==bb)) {// bishop can't move if pinned by rook
+          // if the pinned piece is a bishop
+          int index = piecesBetween.getLsb();
+          Bitboard moves = bishopMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
+          moves &= ~own;
+          moves = (moves & captureMask) | (moves & pushMask);
+          while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type , false, false));
+        } else if(t!=wb && (type==wr || type==br)) {// rook can't move if pinned by bishop
+          // if the pinned piece is a rook
+          int index = piecesBetween.getLsb();
+          Bitboard moves = rookMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
+          moves &= ~own;
+          moves = (moves & captureMask) | (moves & pushMask);
+          while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type, false, false));
+        } else if(type==wq || type==bq) {
+          // if the pinned piece is a queen
+          int index = piecesBetween.getLsb();
+          Bitboard moves = queenMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
+          moves &= ~own;
+          moves = (moves & captureMask) | (moves & pushMask);
+          while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type, false, false));
         }
       }
     }
@@ -451,7 +444,6 @@ std::vector<Move> Movegen::genMoves(Position& position) {
 
   // normal pawn moves
   PieceType type = isWhite ? wp : bp;
-  moves = 0;
   Bitboard i = position.getPieces(type) & ~pinnedPieces;
   Bitboard enPassant = position.getEnPassant();
   while(i.popcnt()) {
@@ -464,7 +456,7 @@ std::vector<Move> Movegen::genMoves(Position& position) {
 
     // en passant moves
     if(enPassant.popcnt()) {
-      Bitboard epPushes = attacks & enPassant & thirdSixthRank; // ep pushes (i.e. where the pawn ends up) must be on the third/sixth rank
+      Bitboard epPushes = attacks & enPassant & (thirdRank|sixthRank); // ep pushes (i.e. where the pawn ends up) must be on the third/sixth rank
       Bitboard epCaptures = enPassantCaptures(1ull<<index) & enPassant & fourthFifthRank; // ep captures (i.e. where the captured pawn is) must be on fourth/fifth rank
       Bitboard epMoves = isWhite ? (epCaptures&captureMask)<<8 : (epCaptures&captureMask)>>8;
       epMoves |= epPushes & pushMask;

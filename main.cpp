@@ -1,23 +1,47 @@
 #include "Position.h"
 #include "Bitboard.h"
-#include "Movegen.h"
-#include "Terminal.h"
+#include "MoveGenerator.h"
+#include "Util.h"
 #include <iostream>
 #include <bit>
+
+int numPositions(int depth, Position& p, MoveGenerator& m) {
+  if(depth == 0) return 1;
+  int numPos = 0;
+  for(auto move : m.genMoves(p)) {
+    Position next = p;
+    next.makeMove(move);
+    numPos += numPositions(depth-1, next, m);
+  }
+  return numPos;
+}
+
+void movegenTest(int depth, Position& p) {
+  MoveGenerator m;
+  int total = 0;
+  for(auto move : m.genMoves(p)) {
+    Position next = p;
+    next.makeMove(move);
+    int res = numPositions(depth-1, next, m);
+    std::cout << (char)((move.start&7)+'a') << (move.start>>3)+1
+      << (char)((move.end&7)+'a') << (move.end>>3)+1
+      << ": " << res << "\n";
+    total += res;
+  }
+  std::cout << "total at depth " << depth << ": " << total << "\n";
+}
 
 int main() {
 
   Position p;
-  Movegen m;
+  MoveGenerator m;
+  
+  //movegenTest(5, p);
 
   while(true) {
-    Terminal::display(p);
+    Util::display(p);
 
     std::vector<Move> legalMoves = m.genMoves(p);
-    for(auto i: legalMoves) {
-      std::cout << i.start << "," << i.end << "," << i.piece << " ";
-    }
-    std::cout << "\n";
 
     // get move
     int start, end;

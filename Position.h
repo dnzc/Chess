@@ -19,8 +19,6 @@ class Position {
 
     void makeMove(Move move);
 
-    // pawns, knights, bishops, rooks, queens, king; white, black
-
     Bitboard getWhiteOccupancy();
     Bitboard getBlackOccupancy();
     Bitboard getPieces(PieceType pt);
@@ -40,6 +38,7 @@ class Position {
     PieceType m_board[64];
 
     bool m_whiteToMove;
+    // castling rights
     bool m_whiteCastleKingside;
     bool m_whiteCastleQueenside;
     bool m_blackCastleKingside;

@@ -1,10 +1,10 @@
-#include "Terminal.h"
+#include "Util.h"
 #include "Bitboard.h"
 #include "Position.h"
 #include <iostream>
 #include <string>
 
-void Terminal::display(Position& position) {
+void Util::display(Position& position) {
 
   std::string pieceSymbols[] = {"\u2659", "\u2658", "\u2657", "\u2656", "\u2655", "\u2654", "\u265F", "\u265E", "\u265D", "\u265C", "\u265B", "\u265A"};
 
@@ -26,7 +26,7 @@ void Terminal::display(Position& position) {
   display8x8(board);
 }
 
-void Terminal::display8x8(Bitboard bitboard) {
+void Util::display8x8(Bitboard bitboard) {
   std::string stringSymbols[64];
   for(int i=0; i<64; ++i) {
     Bitboard bit = (bitboard>>i) & 1;
@@ -35,7 +35,7 @@ void Terminal::display8x8(Bitboard bitboard) {
   display8x8(stringSymbols);
 }
 
-void Terminal::display8x8(std::string symbols[64]) {
+void Util::display8x8(std::string symbols[64]) {
 
   // useful strings
   std::string vb = "\u2502"; // vertical bar

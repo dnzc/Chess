@@ -3,10 +3,10 @@
 #include "Move.h"
 #include <vector>
 
-class Movegen {
+class MoveGenerator {
 
   public:
-    Movegen();
+    MoveGenerator();
     std::vector<Move> genMoves(Position& position);
 
   private:
@@ -44,14 +44,16 @@ class Movegen {
     Bitboard notHFile = ~0x8080808080808080;
 
     // useful for calculating double pawn moves
-    Bitboard thirdSixthRank = 0x0000ff0000ff0000;
+    Bitboard thirdRank = 0x0000000000ff0000;
+    Bitboard sixthRank = 0x0000ff0000000000;
     // useful for dealing with en passant
     Bitboard fourthFifthRank = 0x000000ffff000000;
 
     // STATIC LOOKUP TABLES: the key, k, is a board square
     
-    // sliding piece moves between square k and another square: useful when calculating valid places to block sliding piece checks
-    Bitboard m_pushMasks[64][64];
+    // sliding piece moves between square k and another square: useful when calculating pins, and valid places to block sliding piece checks
+    Bitboard m_bishopPushMasks[64][64];
+    Bitboard m_rookPushMasks[64][64];
 
     // possible knight moves from square k
     Bitboard m_knightMoves[64];
