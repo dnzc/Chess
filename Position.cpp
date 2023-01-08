@@ -113,7 +113,10 @@ void Position::makeMove(Move move) {
 
   // move the piece
   m_pieces[move.piece] ^= 1ull<<move.start;
-  m_pieces[move.piece] |= 1ull<<move.end;
+  if(!move.promotion) m_pieces[move.piece] |= 1ull<<move.end;
+  // if a pawn promotion, then update the right bitboard
+  else m_pieces[move.promotion] |= 1ull<<move.end;
+
   if(m_whiteToMove) {
     m_whiteOccupancy ^= 1ull<<move.start;
     m_whiteOccupancy |= 1ull<<move.end;
@@ -131,8 +134,7 @@ void Position::makeMove(Move move) {
   // if current move is double pawn push, then update en passant availability
   if(move.piece==wp && move.end-move.start==16) {
     m_enPassant = (1ull<<move.end) | (1ull<<(move.end-8));
-  }
-  else if(move.piece==bp && move.end-move.start==-16) {
+  } else if(move.piece==bp && move.end-move.start==-16) {
     m_enPassant = (1ull<<move.end) | (1ull<<(move.end+8));
   }
   // if current move is en passant, then remove the piece to be captured

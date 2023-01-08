@@ -5,11 +5,6 @@
 #include <string>
 #include <cstdint>
 #include <vector>
-enum PieceType {
-  wp, wn, wb, wr, wq, wk,
-  bp, bn, bb, br, bq, bk,
-  empty
-};
 
 class Position {
 

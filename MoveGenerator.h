@@ -7,7 +7,12 @@ class MoveGenerator {
 
   public:
     MoveGenerator();
+    // move generation function
+    // if checkmate, then returns empty list
+    // if draw, then returns a length one list containing Move(-1, -1, false, false)
     std::vector<Move> genMoves(Position& position);
+    // returns occupancy bitboard of pieces giving check
+    Bitboard getCheckingPieces(Position& position);
 
   private:
 
@@ -37,8 +42,6 @@ class MoveGenerator {
     // ignoring your own king to avoid issues when in check from sliding piece
     Bitboard getDangerSquares(Position& position);
 
-    Bitboard getCheckingPieces(Position& position);
-
     // useful for removing pieces on the A or H file when calculating pawn attacks
     Bitboard notAFile = ~0x0101010101010101; 
     Bitboard notHFile = ~0x8080808080808080;
@@ -48,6 +51,9 @@ class MoveGenerator {
     Bitboard sixthRank = 0x0000ff0000000000;
     // useful for dealing with en passant
     Bitboard fourthFifthRank = 0x000000ffff000000;
+    // useful for calculating promotions
+    Bitboard firstRank = 0x00000000000000ff;
+    Bitboard eigthRank = 0xff00000000000000;
 
     // STATIC LOOKUP TABLES: the key, k, is a board square
     

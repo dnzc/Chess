@@ -36,7 +36,7 @@ int main() {
   Position p;
   MoveGenerator m;
   
-  //movegenTest(5, p);
+  movegenTest(5, p);
 
   while(true) {
     Util::display(p);
@@ -44,25 +44,55 @@ int main() {
     std::vector<Move> legalMoves = m.genMoves(p);
 
     // get move
-    int start, end;
     while(true) {
       std::cout << "Enter move: ";
       char startFile, startRank, endFile, endRank;
       std::cin >> startFile >> startRank >> endFile >> endRank;
 
-      start = (startRank-'1')*8 + (startFile-'a');
-      end = (endRank-'1')*8 + (endFile-'a');
+      int start = (startRank-'1')*8 + (startFile-'a');
+      int end = (endRank-'1')*8 + (endFile-'a');
 
       // check if legal move
-      bool legal = false;
+      std::vector<Move> possibleMoves;
       for(Move i : legalMoves) {
         if(start == i.start && end == i.end) {
-          legal = true;
-          p.makeMove(i);
-          break;
+          possibleMoves.push_back(i);
         }
       }
-      if(legal) break;
+
+      if(possibleMoves.size() == 1) {
+        Move move = possibleMoves[0];
+        p.makeMove(move);
+        break;
+      }
+      else if(possibleMoves.size() > 1) { // if promotion
+        PieceType promote;
+        while(true) {
+          std::cout << "Promote to queen (q), rook (r), bishop (b) or knight(n)? ";
+          char piece; std::cin >> piece;
+          bool isWhite = possibleMoves[0].piece < 6;
+          if(piece=='q') {
+            promote = isWhite ? wq : bq;
+            break;
+          }
+          else if(piece=='r') {
+            promote = isWhite ? wr : br;
+            break;
+          }
+          else if(piece=='b') {
+            promote = isWhite ? wb : bb;
+            break;
+          }
+          else if(piece=='n') {
+            promote = isWhite ? wn : bn;
+            break;
+          }
+        }
+        Move move = possibleMoves[0];
+        p.makeMove(Move(move.start, move.end, move.piece, false, promote, false));
+        break;
+      }
+
     }
 
   }

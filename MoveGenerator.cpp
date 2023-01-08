@@ -289,7 +289,7 @@ Bitboard MoveGenerator::getDangerSquares(Position& position) {
   for(int t=wn; t<wk; ++t) {
     PieceType type = (PieceType) (t + isWhite*6); // enemy piece type
     Bitboard i = position.getPieces(type);
-    while(i.popcnt()) {
+    while(i.getBits()) {
       int index = i.popLsb();
       switch(t) {
         case wn:
@@ -351,31 +351,31 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
   Bitboard dangerSquares = getDangerSquares(position);
   moves &= ~own;
   moves &= ~dangerSquares;
-  while(moves.popcnt()) moveList.push_back(Move(kingSquare, moves.popLsb(), isWhite ? wk : bk, false, false));
+  while(moves.getBits()) moveList.push_back(Move(kingSquare, moves.popLsb(), isWhite ? wk : bk, false, false, false));
   // castling
-  if(checks.popcnt() == 0) {
+  if(checks.getBits()==0) {
     if(isWhite) {
       if(
         position.canWhiteCastleKingside() // can castle kingside
         && (occ&96) == 0 // f1,g1 are unoccupied
         && (dangerSquares&96) == 0 // f1,g1 are unattacked
-      ) moveList.push_back(Move(4, 6, wk, false, true));
+      ) moveList.push_back(Move(4, 6, wk, true, false, false));
       if(
         position.canWhiteCastleQueenside() // can castle queenside
         && (occ&14) == 0 // b1,c1,d1 are unoccupied
         && (dangerSquares&14) == 0 // b1,c1,d1 are unattacked
-      ) moveList.push_back(Move(4, 2, wk, false, true));
+      ) moveList.push_back(Move(4, 2, wk, true, false, false));
     } else {
       if(
         position.canBlackCastleKingside() // can castle kingside
         && (occ&(96ull<<56)) == 0 // f8,g8 are unoccupied
         && (dangerSquares&(96ull<<56)) == 0 // f8,g8 are unattacked
-      ) moveList.push_back(Move(60, 62, bk, false, true));
+      ) moveList.push_back(Move(60, 62, bk, true, false, false));
       if(
         position.canWhiteCastleQueenside() // can castle queenside
         && (occ&(14ull<<56)) == 0 // b8,c8,d8 are unoccupied
         && (dangerSquares&(14ull<<56)) == 0 // b8,c8,d8 are unattacked
-      ) moveList.push_back(Move(60, 58, bk, false, true));
+      ) moveList.push_back(Move(60, 58, bk, true, false, false));
     }
   }
 
@@ -389,7 +389,7 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
   // and the pinned piece's legal moves are a subset of the push mask (along with capturing the pinning piece)
   for(int t=wb; t<=wq; ++t) {
     Bitboard enemyPieces = position.getPieces((PieceType)(t + isWhite*6));
-    while(enemyPieces.popcnt()) {
+    while(enemyPieces.getBits()) {
       int slidingPiece = enemyPieces.popLsb();
       Bitboard squaresBetween = 0;
       if(t!=wb) squaresBetween |= m_rookPushMasks[kingSquare][slidingPiece];
@@ -406,15 +406,26 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
           Bitboard attacks = pawnAttacks(piecesBetween, isWhite) & (squaresBetween|(1ull<<slidingPiece));
           Bitboard captures = attacks & enemy;
           Bitboard moves = (captures & captureMask) | (pushes & pushMask);
-          while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type, false, false));
+
+          Bitboard nonPromotions = isWhite ? (moves & ~eigthRank) : (moves & ~firstRank);
+          while(nonPromotions.getBits()) moveList.push_back(Move(index, nonPromotions.popLsb(), type, false, false, false));
+          Bitboard promotions = isWhite ? (moves & eigthRank) : (moves & firstRank);
+          while(promotions.getBits()) {
+            int end = promotions.popLsb(); 
+            moveList.push_back(Move(index, end, type, false, isWhite ? wn : bn, false));
+            moveList.push_back(Move(index, end, type, false, isWhite ? wb : bb, false));
+            moveList.push_back(Move(index, end, type, false, isWhite ? wr : br, false));
+            moveList.push_back(Move(index, end, type, false, isWhite ? wq : bq, false));
+          }
+
           // en passant moves
           Bitboard enPassant = position.getEnPassant();
-          if(enPassant.popcnt()) {
+          if(enPassant.getBits()) {
             Bitboard epPushes = attacks & enPassant & (thirdRank|sixthRank); // ep pushes (i.e. where the pawn ends up) must be on the third/sixth rank
             Bitboard epCaptures = enPassantCaptures(1ull<<index) & enPassant & fourthFifthRank; // ep captures (i.e. where the captured pawn is) must be on fourth/fifth rank
             Bitboard epMoves = isWhite ? (epCaptures&captureMask)<<8 : (epCaptures&captureMask)>>8;
             epMoves |= epPushes & pushMask & squaresBetween; // must push onto the same pin ray
-            while(epMoves.popcnt()) moveList.push_back(Move(index, epMoves.popLsb(), type, true, false));
+            while(epMoves.getBits()) moveList.push_back(Move(index, epMoves.popLsb(), type, false, false, true));
           }
         } else if(t!=wr && (type==wb || type==bb)) {// bishop can't move if pinned by rook
           // if the pinned piece is a bishop
@@ -422,21 +433,21 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
           Bitboard moves = bishopMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
           moves &= ~own;
           moves = (moves & captureMask) | (moves & pushMask);
-          while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type , false, false));
+          while(moves.getBits()) moveList.push_back(Move(index, moves.popLsb(), type , false, false, false));
         } else if(t!=wb && (type==wr || type==br)) {// rook can't move if pinned by bishop
           // if the pinned piece is a rook
           int index = piecesBetween.getLsb();
           Bitboard moves = rookMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
           moves &= ~own;
           moves = (moves & captureMask) | (moves & pushMask);
-          while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type, false, false));
+          while(moves.getBits()) moveList.push_back(Move(index, moves.popLsb(), type, false, false, false));
         } else if(type==wq || type==bq) {
           // if the pinned piece is a queen
           int index = piecesBetween.getLsb();
           Bitboard moves = queenMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
           moves &= ~own;
           moves = (moves & captureMask) | (moves & pushMask);
-          while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type, false, false));
+          while(moves.getBits()) moveList.push_back(Move(index, moves.popLsb(), type, false, false, false));
         }
       }
     }
@@ -446,22 +457,32 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
   PieceType type = isWhite ? wp : bp;
   Bitboard i = position.getPieces(type) & ~pinnedPieces;
   Bitboard enPassant = position.getEnPassant();
-  while(i.popcnt()) {
+  while(i.getBits()) {
+
     int index = i.popLsb();
     Bitboard pushes = pawnPushes(1ull<<index, isWhite, occ);
     Bitboard attacks = pawnAttacks(1ull<<index, isWhite);
     Bitboard captures = attacks & enemy;
     Bitboard moves = (captures & captureMask) | (pushes & pushMask);
-    while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type, false, false));
+    Bitboard nonPromotions = isWhite ? (moves & ~eigthRank) : (moves & ~firstRank);
+    while(nonPromotions.getBits()) moveList.push_back(Move(index, nonPromotions.popLsb(), type, false, false, false));
+    Bitboard promotions = isWhite ? (moves & eigthRank) : (moves & firstRank);
+    while(promotions.getBits()) {
+      int end = promotions.popLsb(); 
+      moveList.push_back(Move(index, end, type, false, isWhite ? wn : bn, false));
+      moveList.push_back(Move(index, end, type, false, isWhite ? wb : bb, false));
+      moveList.push_back(Move(index, end, type, false, isWhite ? wr : br, false));
+      moveList.push_back(Move(index, end, type, false, isWhite ? wq : bq, false));
+    }
 
-    // en passant moves
-    if(enPassant.popcnt()) {
+    // en passant
+    if(enPassant.getBits()) {
       Bitboard epPushes = attacks & enPassant & (thirdRank|sixthRank); // ep pushes (i.e. where the pawn ends up) must be on the third/sixth rank
       Bitboard epCaptures = enPassantCaptures(1ull<<index) & enPassant & fourthFifthRank; // ep captures (i.e. where the captured pawn is) must be on fourth/fifth rank
       Bitboard epMoves = isWhite ? (epCaptures&captureMask)<<8 : (epCaptures&captureMask)>>8;
       epMoves |= epPushes & pushMask;
       bool valid = true;
-      if(epMoves.popcnt() && ( // en passant moves exist
+      if(epMoves.getBits() && ( // en passant moves exist
             (isWhite && (kingSquare>>3) == 4) // white to move and white king on 5th rank
             || (!isWhite && (kingSquare>>3) == 3) // black to move and black king on 4th rank
         )) {
@@ -469,10 +490,10 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
         Position pawnsRemoved = position;
         pawnsRemoved.removePieces(type, 1ull<<index);
         pawnsRemoved.removePieces(isWhite ? bp : wp, epCaptures);
-        if(getCheckingPieces(pawnsRemoved).popcnt()) valid = false;
+        if(getCheckingPieces(pawnsRemoved).getBits()) valid = false;
       }
       if(valid) {
-        while(epMoves.popcnt()) moveList.push_back(Move(index, epMoves.popLsb(), type, true, false));
+        while(epMoves.getBits()) moveList.push_back(Move(index, epMoves.popLsb(), type, false, false, true));
       }
     }
   }
@@ -481,7 +502,7 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
   for(int t=wn; t<wk; ++t) {
     PieceType type = (PieceType) (t + (!isWhite)*6);
     Bitboard i = position.getPieces(type) & ~pinnedPieces;
-    while(i.popcnt()) {
+    while(i.getBits()) {
       Bitboard moves = 0;
       int index = i.popLsb();
       switch(t) {
@@ -500,7 +521,7 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
       }
       moves &= ~own;
       moves = (moves & captureMask) | (moves & pushMask);
-      while(moves.popcnt()) moveList.push_back(Move(index, moves.popLsb(), type, false, false));
+      while(moves.getBits()) moveList.push_back(Move(index, moves.popLsb(), type, false, false, false));
     }
   }
 
