@@ -1,72 +1,77 @@
-#pragma once
+#include "Bitboard.h"
+#include "Position.h"
+#include "Move.h"
+#include <vector>
 
-#include <string>
-#include <cstdint>
-
-class Board {
+class Movegen {
 
   public:
-
-    Board();
-
-    void displayBoard();
-    static void display8x8(uint64_t bitboard);
-    static void display8x8(std::string symbols[64]);
-
-    void makeMove(int start, int end);
-
-    uint64_t lookupKnightMoves(int square);
-    uint64_t lookupRookMoves(int square, uint64_t occupancyBoard);
-    uint64_t lookupBishopMoves(int square, uint64_t occupancyBoard);
+    Movegen();
+    std::vector<Move> genMoves(Position& position);
 
   private:
 
     void initKnightMoveTable();
+    void initKingMoveTable();
+    void initRookBishopMoveTable(bool isRook);
+    void initPushMasks();
 
     void findRookBishopMagics(bool isRook);
     void initRookBishopBlockerMasks(bool isRook);
-    void initRookBishopMoveTable(bool isRook);
 
-    uint64_t getBlockerBoard(uint64_t mask, int index);
-    uint64_t getRookBishopMoveBoard(bool isRook, uint64_t blockerBoard, int square);
+    // slow, used for generation at start only
+    Bitboard getBlockerBoard(Bitboard mask, int index);
+    Bitboard getRookBishopMoveBoard(bool isRook, Bitboard blockerBoard, int square);
 
-    // pawns, knights, bishops, rooks, queens, king; white, black: used as indices for m_pieces and m_symbols, for readability
-    enum PiecesList {
-      wp, wn, wb, wr, wq, wk,
-      bp, bn, bb, br, bq, bk,
-    };
+    // pseudo-legal pawn move generation
+    Bitboard pawnPushes(Bitboard pawns, bool isWhite, Bitboard occupancy);
+    Bitboard pawnAttacks(Bitboard pawns, bool isWhite);
+    Bitboard enPassantCaptures(Bitboard pawns);
 
-    // BITBOARD INDEX SYSTEM:
-    // 56 57 58 59 60 61 62 63
-    // 48 49 50 51 52 53 54 55
-    // 40 41 42 43 44 45 46 47
-    // 32 33 34 35 36 37 38 39
-    // 24 25 26 27 28 29 30 31
-    // 16 17 18 19 20 21 22 23
-    //  8  9 10 11 12 13 14 15
-    //  0  1  2  3  4  5  6  7
+    // pseudo-legal move generation functions for sliding pieces
+    Bitboard bishopMoves(int square, Bitboard occupancy);
+    Bitboard rookMoves(int square, Bitboard occupancy);
+    Bitboard queenMoves(int square, Bitboard occupancy);
 
-    // bitboards and symbols for each (piece type, colour) pair
-    uint64_t m_pieces[12];
-    std::string m_symbols[12];
+    // danger squares are squares attacked by an enemy piece,
+    // ignoring your own king to avoid issues when in check from sliding piece
+    Bitboard getDangerSquares(Position& position);
 
-    // static lookup tables: the key, k, is a board square
+    Bitboard getCheckingPieces(Position& position);
+
+    // useful for removing pieces on the A or H file when calculating pawn attacks
+    Bitboard notAFile = ~0x0101010101010101; 
+    Bitboard notHFile = ~0x8080808080808080;
+
+    // useful for calculating double pawn moves
+    Bitboard thirdSixthRank = 0x0000ff0000ff0000;
+    // useful for dealing with en passant
+    Bitboard fourthFifthRank = 0x000000ffff000000;
+
+    // STATIC LOOKUP TABLES: the key, k, is a board square
+    
+    // sliding piece moves between square k and another square: useful when calculating valid places to block sliding piece checks
+    Bitboard m_pushMasks[64][64];
+
     // possible knight moves from square k
-    uint64_t m_knightMoves[64];
+    Bitboard m_knightMoves[64];
+    // possible king moves from square k
+    Bitboard m_kingMoves[64];
 
     // possible positions of a piece that would block a rook on square k ("blockers")
     // note: a piece on the board edge can't be a blocker because it could be captured, not obstructing movement
-    uint64_t m_rookMasks[64];
-    // rook moves on square k, magic-indexed ("hashed") by an arrangement of blocker pieces
+    Bitboard m_rookMasks[64];
+    // rook moves on square k, "magic-indexed" (hashed) by an arrangement of blocker pieces
     // note: at most 4096 possible blocker configurations (i.e. table indices) because a rook has at most 12 potential blockers
-    uint64_t m_rookMoves[64][4096];
+    Bitboard m_rookMoves[64][4096];
 
     // same as above, for bishops
-    uint64_t m_bishopMasks[64];
-    uint64_t m_bishopMoves[64][512];
+    Bitboard m_bishopMasks[64];
+    Bitboard m_bishopMoves[64][512];
 
-    // rook and bishop magics: these were found by running the findRookBishopMagics function in Board.cpp
-    uint64_t m_rookMagics[64] = {
+    // SLIDING PIECE MAGICS
+    // these were found by running the findRookBishopMagics function in Board.cpp
+    Bitboard m_rookMagics[64] = {
       36029347062104064,
       594475289326649352,
       2341880671045427200,
@@ -133,7 +138,7 @@ class Board {
       275423428866,
     };
 
-    uint64_t m_bishopMagics[64] = {
+    Bitboard m_bishopMagics[64] = {
       9007345417850912,
       9024868754395136,
       4507998211022976,
@@ -199,5 +204,4 @@ class Board {
       2203989319688,
       18015498591666240,
     };
-
 };
