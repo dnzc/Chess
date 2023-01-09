@@ -1,10 +1,12 @@
 #include "Position.h"
 #include "Bitboard.h"
 #include "MoveGenerator.h"
+#include "Engine.h"
 #include "Util.h"
 #include <iostream>
 #include <bit>
 
+// GROUP A SKILL - recursion
 int numPositions(int depth, Position& p, MoveGenerator& m) {
   if(depth == 0) return 1;
   int numPos = 0;
@@ -16,7 +18,7 @@ int numPositions(int depth, Position& p, MoveGenerator& m) {
   return numPos;
 }
 
-void movegenTest(int depth, Position& p) {
+void movegenTest(int depth, Position p) {
   MoveGenerator m;
   int total = 0;
   for(auto move : m.genMoves(p)) {
@@ -33,15 +35,15 @@ void movegenTest(int depth, Position& p) {
 
 int main() {
 
-  Position p;
-  MoveGenerator m;
+  //Engine e("1k6/6b1/2Q4q/8/8/8/2K5/8 w - - 0 1");
+  Engine e;
   
-  movegenTest(5, p);
+  //movegenTest(5, e.getPos());
 
   while(true) {
-    Util::display(p);
+    Util::display(e.getPos());
 
-    std::vector<Move> legalMoves = m.genMoves(p);
+    std::vector<Move> legalMoves = e.getLegalMoves();
 
     // get move
     while(true) {
@@ -62,7 +64,7 @@ int main() {
 
       if(possibleMoves.size() == 1) {
         Move move = possibleMoves[0];
-        p.makeMove(move);
+        e.makeMove(move);
         break;
       }
       else if(possibleMoves.size() > 1) { // if promotion
@@ -89,11 +91,13 @@ int main() {
           }
         }
         Move move = possibleMoves[0];
-        p.makeMove(Move(move.start, move.end, move.piece, false, promote, false));
+        e.makeMove(Move(move.start, move.end, move.piece, false, promote, false));
         break;
       }
 
     }
+
+    e.makeMove(e.MCTS(5000, true));
 
   }
 

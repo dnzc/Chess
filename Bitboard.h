@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+// GROUP A SKILL - complex OOP
 class Bitboard {
   public:
     Bitboard();

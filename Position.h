@@ -6,11 +6,14 @@
 #include <cstdint>
 #include <vector>
 
+// GROUP A SKILL - complex OOP
 class Position {
 
   public:
 
     Position();
+    Position(std::string FEN);
+    //Position(const Position& position);
 
     void makeMove(Move move);
 
@@ -23,6 +26,7 @@ class Position {
     bool canWhiteCastleQueenside();
     bool canBlackCastleKingside();
     bool canBlackCastleQueenside();
+    int getPlysSince50();
     Bitboard getEnPassant();
 
     void removePieces(PieceType pt, Bitboard bb);
@@ -39,14 +43,12 @@ class Position {
     bool m_blackCastleKingside;
     bool m_blackCastleQueenside;
 
+    int m_plysSince50; // number of plys since 50 move rule was reset
+
     // bitboards for each (piece type, colour) pair
     Bitboard m_pieces[12];
 
     // squares that could be affected by en passant next move
     Bitboard m_enPassant;
-
-    // bitboards for squares containing white/black pieces
-    Bitboard m_whiteOccupancy;
-    Bitboard m_blackOccupancy;
 
 };

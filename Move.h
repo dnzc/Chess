@@ -7,7 +7,8 @@ enum PieceType {
 };
 
 struct Move {
-    Move(int start, int end, int piece, bool enPassant, int promotion, bool castle) : start(start), end(end), piece(piece), enPassant(enPassant), promotion(promotion), castle(castle) {};
+    Move(int start, int end, int piece, bool castle, int promotion, bool enPassant)
+      : start(start), end(end), piece(piece), castle(castle), promotion(promotion), enPassant(enPassant) {};
     int start;
     int end;
     int piece;

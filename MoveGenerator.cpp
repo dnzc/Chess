@@ -163,6 +163,7 @@ Bitboard MoveGenerator::getRookBishopMoveBoard(bool isRook, Bitboard blockerBoar
   return moveBoard;
 }
 
+// GROUP A SKILL: complex user-defined algorithms
 void MoveGenerator::findRookBishopMagics(bool isRook) {
   std::cout << "finding magics...\n";
   // number of bits needed to store all possible blocker configurations, which equals the max number of potential blockers
@@ -285,8 +286,8 @@ Bitboard MoveGenerator::getDangerSquares(Position& position) {
   // enemy pawn attacks
   dangerSquares |= pawnAttacks(position.getPieces(isWhite ? bp : wp), !isWhite);
 
-  // for each other piece type except king (because king can't check another king)
-  for(int t=wn; t<wk; ++t) {
+  // for each other piece type
+  for(int t=wn; t<=wk; ++t) {
     PieceType type = (PieceType) (t + isWhite*6); // enemy piece type
     Bitboard i = position.getPieces(type);
     while(i.getBits()) {
@@ -303,6 +304,9 @@ Bitboard MoveGenerator::getDangerSquares(Position& position) {
           break;
         case wq:
           dangerSquares |= queenMoves(index, occ);
+          break;
+        case wk:
+          dangerSquares |= m_kingMoves[index];
           break;
       }
     }
@@ -328,6 +332,7 @@ Bitboard MoveGenerator::getCheckingPieces(Position& position) {
   return checkers;
 }
 
+// GROUP A SKILL: complex user-defined algorithms
 std::vector<Move> MoveGenerator::genMoves(Position& position) {
 
   std::vector<Move> moveList;
@@ -351,7 +356,11 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
   Bitboard dangerSquares = getDangerSquares(position);
   moves &= ~own;
   moves &= ~dangerSquares;
-  while(moves.getBits()) moveList.push_back(Move(kingSquare, moves.popLsb(), isWhite ? wk : bk, false, false, false));
+  while(moves.getBits()) {
+    int end = moves.popLsb();
+    Move m = Move(kingSquare, end, isWhite ? wk : bk, false, false, false);
+    moveList.push_back(m);
+  }
   // castling
   if(checks.getBits()==0) {
     if(isWhite) {
@@ -372,7 +381,7 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
         && (dangerSquares&(96ull<<56)) == 0 // f8,g8 are unattacked
       ) moveList.push_back(Move(60, 62, bk, true, false, false));
       if(
-        position.canWhiteCastleQueenside() // can castle queenside
+        position.canBlackCastleQueenside() // can castle queenside
         && (occ&(14ull<<56)) == 0 // b8,c8,d8 are unoccupied
         && (dangerSquares&(14ull<<56)) == 0 // b8,c8,d8 are unattacked
       ) moveList.push_back(Move(60, 58, bk, true, false, false));
@@ -433,7 +442,7 @@ std::vector<Move> MoveGenerator::genMoves(Position& position) {
           Bitboard moves = bishopMoves(piecesBetween.getLsb(), occ) & (squaresBetween|(1ull<<slidingPiece));
           moves &= ~own;
           moves = (moves & captureMask) | (moves & pushMask);
-          while(moves.getBits()) moveList.push_back(Move(index, moves.popLsb(), type , false, false, false));
+          while(moves.getBits()) moveList.push_back(Move(index, moves.popLsb(), type, false, false, false));
         } else if(t!=wb && (type==wr || type==br)) {// rook can't move if pinned by bishop
           // if the pinned piece is a rook
           int index = piecesBetween.getLsb();

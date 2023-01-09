@@ -5,7 +5,7 @@
 #include <string>
 
 struct Util {
-    static void display(Position& position);
-    static void display8x8(Bitboard bitboard);
-    static void display8x8(std::string symbols[64]);
+    static void display(Position position);
+    static void display(Bitboard bitboard);
+    static void display(std::string symbols[64]);
 };

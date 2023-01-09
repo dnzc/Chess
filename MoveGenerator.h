@@ -1,15 +1,17 @@
+#pragma once
+
 #include "Bitboard.h"
 #include "Position.h"
 #include "Move.h"
+#include "Util.h"
 #include <vector>
 
+// GROUP A SKILL: complex OOP
 class MoveGenerator {
 
   public:
     MoveGenerator();
-    // move generation function
-    // if checkmate, then returns empty list
-    // if draw, then returns a length one list containing Move(-1, -1, false, false)
+    // legal move generation function
     std::vector<Move> genMoves(Position& position);
     // returns occupancy bitboard of pieces giving check
     Bitboard getCheckingPieces(Position& position);

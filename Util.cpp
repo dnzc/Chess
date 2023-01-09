@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 
-void Util::display(Position& position) {
+void Util::display(Position position) {
 
   std::string pieceSymbols[] = {"\u2659", "\u2658", "\u2657", "\u2656", "\u2655", "\u2654", "\u265F", "\u265E", "\u265D", "\u265C", "\u265B", "\u265A"};
 
@@ -23,19 +23,20 @@ void Util::display(Position& position) {
   }
 
   // output to screen
-  display8x8(board);
+  display(board);
 }
 
-void Util::display8x8(Bitboard bitboard) {
+void Util::display(Bitboard bitboard) {
   std::string stringSymbols[64];
   for(int i=0; i<64; ++i) {
     Bitboard bit = (bitboard>>i) & 1;
     stringSymbols[i] = (bit==1) ? std::to_string(bit.getBits()) : " ";
   }
-  display8x8(stringSymbols);
+  display(stringSymbols);
 }
 
-void Util::display8x8(std::string symbols[64]) {
+// GROUP A SKILL - complex user-defined algorithms
+void Util::display(std::string symbols[64]) {
 
   // useful strings
   std::string vb = "\u2502"; // vertical bar
