@@ -16,6 +16,7 @@ class Position {
     //Position(const Position& position);
 
     void makeMove(Move move);
+    void undoMove(Move move, PieceType capturedPiece, Bitboard prevPassant, int prev50);
 
     Bitboard getWhiteOccupancy();
     Bitboard getBlackOccupancy();

@@ -94,6 +94,6 @@ void Util::display(std::string symbols[64]) {
     std::cout << (char)('a'+x) << " " + b + " ";
   }
 
-  std::cout << "\n\n";
+  std::cout << "\n\n\n";
 
 }

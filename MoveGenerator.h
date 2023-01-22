@@ -12,7 +12,7 @@ class MoveGenerator {
   public:
     MoveGenerator();
     // legal move generation function
-    std::vector<Move> genMoves(Position& position);
+    std::vector<Move> genMoves(Position& position, bool onlyCaptures);
     // returns occupancy bitboard of pieces giving check
     Bitboard getCheckingPieces(Position& position);
 

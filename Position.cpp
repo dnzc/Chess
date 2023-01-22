@@ -127,14 +127,17 @@ Position::Position(std::string FEN) {
   stringIndex++;
   c = FEN[stringIndex];
   if(c!='-') {
-    int index = (c-'a')*8 + (FEN[stringIndex+1]-'1');
+    int index = (c-'a') + (FEN[stringIndex+1]-'1')*8;
     m_enPassant = 1ull<<index | (m_whiteToMove ? (1ull<<index)<<8 : (1ull<<index)>>8);
     stringIndex++;
   }
 
+  // if halfmove clock not provided, return
+  stringIndex += 2;
+  if(stringIndex >= FEN.length()) return;
+
   // halfmove clock
   std::string clock = "";
-  stringIndex += 2;
   c = FEN[stringIndex];
   while(c != ' ') {
     clock += c;
@@ -195,8 +198,6 @@ int Position::getPlysSince50() {
 // GROUP A SKILL - complex user-defined algorithms
 void Position::makeMove(Move move) {
 
-  Bitboard old_wk = m_pieces[wk];
-
   // remove target piece if it exists
   PieceType pieceToDie = m_board[move.end];
   if(pieceToDie != empty) {
@@ -250,7 +251,7 @@ void Position::makeMove(Move move) {
     // white kingside castle
     if(move.start == 4 && move.end == 6) {
       m_pieces[wr] &= ~(1ull<<7);
-      m_pieces[wr] |= 1ull<<5;
+      m_pieces[wr] |= (1ull<<5);
       m_board[7] = empty;
       m_board[5] = wr;
     }
@@ -284,8 +285,82 @@ void Position::makeMove(Move move) {
   // flip player to move
   m_whiteToMove = !m_whiteToMove;
 
-  if(old_wk.popcnt()==1 && m_pieces[wk].popcnt()>2) {
-    Util::display(*this);
-    std::cout << move.start << "," << move.end << "\n";
+}
+
+// makeMove but reversed
+// only for use in minimax, since does not restore 50 move counter
+void Position::undoMove(Move move, PieceType capturedPiece, Bitboard prevPassant, int prev50) {
+
+  // flip player to move
+  m_whiteToMove = !m_whiteToMove;
+
+  // 50 move rule
+  m_plysSince50 = prev50;
+
+  // if current move is castling, then move the rook back
+  if(move.castle) {
+    // white kingside castle
+    if(move.start == 4 && move.end == 6) {
+      m_pieces[wr] |= (1ull<<7);
+      m_pieces[wr] &= ~(1ull<<5);
+      m_board[7] = wr;
+      m_board[5] = empty;
+      m_whiteCastleKingside = true;
+    }
+    // white queenside castle
+    else if(move.start == 4 && move.end == 2) {
+      m_pieces[wr] |= 1ull;
+      m_pieces[wr] &= ~(1ull<<3);
+      m_board[0] = wr;
+      m_board[3] = empty;
+      m_whiteCastleQueenside = true;
+    }
+    // black kingside castle
+    else if(move.start == 60 && move.end == 62) {
+      m_pieces[br] |= (1ull<<63);
+      m_pieces[br] &= ~(1ull<<61);
+      m_board[63] = br;
+      m_board[61] = empty;
+      m_blackCastleKingside = true;
+    }
+    // black queenside castle
+    else if(move.start == 60 && move.end == 58) {
+      m_pieces[br] |= (1ull<<56);
+      m_pieces[br] &= ~(1ull<<59);
+      m_board[56] = br;
+      m_board[59] = empty;
+      m_blackCastleQueenside = true;
+    }
   }
+
+  // if current move is double pawn push, then update en passant availability
+  if(move.piece==wp && move.end-move.start==16) {
+    m_enPassant = prevPassant;
+  } else if(move.piece==bp && move.end-move.start==-16) {
+    m_enPassant = prevPassant;
+  }
+  // if current move is en passant, then add back the captured pawn
+  else if(move.enPassant) {
+    Bitboard capturedPawn = 1ull<<move.end;
+    if(m_whiteToMove) capturedPawn >>= 8;
+    else capturedPawn <<= 8;
+    m_pieces[m_whiteToMove ? bp : wp] |= capturedPawn;
+    m_board[capturedPawn.getLsb()] = m_whiteToMove ? bp : wp;
+  }
+
+  // update square info
+  m_board[move.end] = capturedPiece;
+  m_board[move.start] = (PieceType)move.piece;
+
+  // move the piece back
+  m_pieces[move.piece] |= (1ull<<move.start);
+  if(move.promotion) m_pieces[move.promotion] &= ~(1ull<<move.end);
+  else m_pieces[move.piece] &= ~(1ull<<move.end);
+
+  // add back target piece if it exists
+  if(capturedPiece != empty) {
+    Bitboard piece = 1ull<<move.end;
+    m_pieces[capturedPiece] |= piece;
+  }
+
 }

@@ -155,7 +155,7 @@ double Engine::minimaxAB(Position& p, std::chrono::time_point<std::chrono::stead
   for(Move move : legalMoves) {
     Position newPos = p;
     newPos.makeMove(move);
-    double evaluation = -minimaxAB(newPos, startTime_ms, timeLimit_ms, depth-1, -beta, -alpha);
+    int evaluation = -minimaxAB(newPos, startTime_ms, timeLimit_ms, depth-1, -beta, -alpha);
     if(evaluation >= beta) return beta+0.1; // add 0.1 so that the move which actually achieved beta is preferred
                                             // (otherwise, if a move falls into mate in one then the engine might still play it as it will be evaluated as 0 if there exists another move that is evaluated at 0 instead of -inf)
     if(evaluation > alpha) alpha = evaluation;
@@ -168,7 +168,7 @@ double Engine::minimaxAB(Position& p, std::chrono::time_point<std::chrono::stead
 double Engine::capturesAB(Position& p, std::chrono::time_point<std::chrono::steady_clock> startTime_ms, int timeLimit_ms, double alpha, double beta) {
   // captures aren't forced, so check the eval before making a capture
   // otherwise, if only bad captures are available then this will evaluate the position as bad, even if other good moves exist
-  double evaluation = eval(p);
+  int evaluation = eval(p);
   if(evaluation >= beta) return beta;
   if(evaluation > alpha) alpha = evaluation;
 
@@ -178,7 +178,7 @@ double Engine::capturesAB(Position& p, std::chrono::time_point<std::chrono::stea
   for(Move move : captureMoves) {
     Position newPos = p;
     newPos.makeMove(move);
-    double evaluation = -capturesAB(newPos, startTime_ms, timeLimit_ms, -beta, -alpha);
+    int evaluation = -capturesAB(newPos, startTime_ms, timeLimit_ms, -beta, -alpha);
     if(evaluation >= beta) return beta;
     if(evaluation > alpha) alpha = evaluation;
     if(getTimeElapsed(startTime_ms) >= timeLimit_ms) return 0;
@@ -209,41 +209,19 @@ void Engine::order(Position& p, std::vector<Move>& moves) {
 
 // positive if current player is winning, negative otherwise
 double Engine::eval(Position& p) {
-  double evaluation = 0;
-  bool isWhite = p.isWhiteToMove();
-  // material count
-  int whitePawns = p.getPieces(wp).popcnt() * m_pieceValues[wp];
-  int whiteOther = p.getPieces(wn).popcnt() * m_pieceValues[wn]
+  int pieceCount = p.getPieces(wp).popcnt() * m_pieceValues[wp]
+                 + p.getPieces(wn).popcnt() * m_pieceValues[wn]
                  + p.getPieces(wb).popcnt() * m_pieceValues[wb]
                  + p.getPieces(wr).popcnt() * m_pieceValues[wr]
-                 + p.getPieces(wq).popcnt() * m_pieceValues[wq];
-  int blackPawns = p.getPieces(bp).popcnt() * m_pieceValues[bp];
-  int blackOther = p.getPieces(bp).popcnt() * m_pieceValues[bp]
-                 + p.getPieces(bn).popcnt() * m_pieceValues[bn]
-                 + p.getPieces(bb).popcnt() * m_pieceValues[bb]
-                 + p.getPieces(br).popcnt() * m_pieceValues[br]
-                 + p.getPieces(bq).popcnt() * m_pieceValues[bq];
-  evaluation = blackPawns + blackOther - whitePawns - whiteOther;
-  if(isWhite) evaluation *= -1;
-
-  // count non-pawn enemy pieces to determine whether endgame
-  double endgameWeight = 1 - (double)(isWhite ? blackOther : whiteOther)/29; // initially there are 29 points worth of non-pawn material
-
-  // in endgames, reward positions where the enemy king is at the board edge
-  int enemyKing = p.getPieces(isWhite ? bk : wk).getLsb();
-  int enemyRank = enemyKing>>3;
-  int enemyFile = enemyKing&7;
-  double distFromCentre = m_centreDist[enemyRank] + m_centreDist[enemyFile];
-  evaluation += 0.2 * distFromCentre * endgameWeight;
-
-  // in endgames, reward positions where our king is close to enemy king
-  int ourKing = p.getPieces(isWhite ? wk : bk).getLsb();
-  int ourRank = ourKing>>3;
-  int ourFile = ourKing&7;
-  double distBetween = abs(ourRank - enemyRank) + abs(ourFile - enemyFile);
-  evaluation += 0.1 * (14-distBetween) * endgameWeight;
-
-  return evaluation;
+                 + p.getPieces(wq).popcnt() * m_pieceValues[wq]
+                 - p.getPieces(bp).popcnt() * m_pieceValues[bp]
+                 - p.getPieces(bn).popcnt() * m_pieceValues[bn]
+                 - p.getPieces(bb).popcnt() * m_pieceValues[bb]
+                 - p.getPieces(br).popcnt() * m_pieceValues[br]
+                 - p.getPieces(bq).popcnt() * m_pieceValues[bq]
+  ;
+  if(!p.isWhiteToMove()) pieceCount *= -1;
+  return pieceCount;
 }
 
 Move Engine::MCTS(int timeLimit_ms, bool alphaBeta, bool verbose) {
@@ -255,9 +233,9 @@ Move Engine::MCTS(int timeLimit_ms, bool alphaBeta, bool verbose) {
   if(m_root->children.size()==0) return Move(-1, -1, empty, false, false, false); // dummy move
   std::sort(m_root->children.begin(), m_root->children.end(), [](const std::shared_ptr<MCTSNode> a, const std::shared_ptr<MCTSNode> b) -> bool {return a->playouts > b->playouts;});
   if(verbose) {
-    std::cout << "Monte Carlo win rates for each move: (format: score/playouts)\n";
+    std::cout << "monte carlo win rates for each move: (format: score/playouts)\n";
     for(auto child : m_root->children) {
-      std::cout << "  " << (char)((child->move.start&7)+'a') << (child->move.start>>3)+1
+      std::cout << (char)((child->move.start&7)+'a') << (child->move.start>>3)+1
         << (char)((child->move.end&7)+'a') << (child->move.end>>3)+1
         << ": " << child->score << "/" << child->playouts << "\n";
     }
@@ -281,7 +259,7 @@ Move Engine::minimax(int timeLimit_ms, bool verbose) {
   // iterative deepening
   int curDepth = 0;
   while(true) {
-    double alpha = -m_inf;
+    int alpha = -m_inf;
     bool timeLimitReached = false;
     for(int i=0; i<moves.size(); ++i) {
       Position p = m_pos;
@@ -312,18 +290,19 @@ Move Engine::minimax(int timeLimit_ms, bool verbose) {
   }
 
   if(verbose) {
-    Move m = lastCompletedSearch[0].first;
-    double bestEval = lastCompletedSearch[0].second;
-    std::cout << "Depth " << curDepth << " minimax best move: " << (char)((m.start&7)+'a') << (m.start>>3)+1
-      << (char)((m.end&7)+'a') << (m.end>>3)+1
-      << " (eval " << bestEval << ")\n";
+    std::cout << "depth " << curDepth << " minimax evaluations for each move:\n";
+    for(auto m : lastCompletedSearch) {
+      std::cout << (char)((m.first.start&7)+'a') << (m.first.start>>3)+1
+        << (char)((m.first.end&7)+'a') << (m.first.end>>3)+1
+        << ": " << m.second << "\n";
+    }
   }
 
   return lastCompletedSearch[0].first;
 }
 
 int Engine::isGameOver() { // 0 if no, 1 if draw, 2 if checkmate
-    if(m_gen.genMoves(m_pos, false).size()==0)
-      return m_gen.getCheckingPieces(m_pos).getBits()==0 ? 1 : 2; 
+    if(m_gen.getLegalMoves().size()==0)
+      return m_gen.getCheckingPieces(p).getBits()==0 ? 1 : 2; 
     return 0;
 }
