@@ -366,26 +366,26 @@ std::vector<Move> MoveGenerator::genMoves(Position& position, bool onlyCaptures)
   if(!onlyCaptures && checks.getBits()==0) {
     if(isWhite) {
       if(
-        position.canWhiteCastleKingside() // can castle kingside
+        position.canWhiteCastleKingside()
         && (occ&96) == 0 // f1,g1 are unoccupied
         && (dangerSquares&96) == 0 // f1,g1 are unattacked
-      ) moveList.push_back(Move(4, 6, wk, true, false, false));
+      ) moveList.push_back(Move(4, 6, wk, 1, false, false));
       if(
-        position.canWhiteCastleQueenside() // can castle queenside
+        position.canWhiteCastleQueenside()
         && (occ&14) == 0 // b1,c1,d1 are unoccupied
         && (dangerSquares&12) == 0 // c1,d1 are unattacked
-      ) moveList.push_back(Move(4, 2, wk, true, false, false));
+      ) moveList.push_back(Move(4, 2, wk, 2, false, false));
     } else {
       if(
-        position.canBlackCastleKingside() // can castle kingside
+        position.canBlackCastleKingside()
         && (occ&(96ull<<56)) == 0 // f8,g8 are unoccupied
         && (dangerSquares&(96ull<<56)) == 0 // f8,g8 are unattacked
-      ) moveList.push_back(Move(60, 62, bk, true, false, false));
+      ) moveList.push_back(Move(60, 62, bk, 3, false, false));
       if(
-        position.canBlackCastleQueenside() // can castle queenside
+        position.canBlackCastleQueenside()
         && (occ&(14ull<<56)) == 0 // b8,c8,d8 are unoccupied
         && (dangerSquares&(12ull<<56)) == 0 // c8,d8 are unattacked
-      ) moveList.push_back(Move(60, 58, bk, true, false, false));
+      ) moveList.push_back(Move(60, 58, bk, 4, false, false));
     }
   }
 

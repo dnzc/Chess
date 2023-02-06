@@ -13,10 +13,12 @@ class Position {
 
     Position();
     Position(std::string FEN);
-    //Position(const Position& position);
 
-    void makeMove(Move move);
-    void undoMove(Move move, PieceType capturedPiece, Bitboard prevPassant, int prev50);
+    // returns a flag
+    // bits (0,1,2,3) are whether
+    // (white kingside, white queenside, black kingside, black queenside)
+    // castling rights were removed, respectively
+    int makeMove(Move move);
 
     Bitboard getWhiteOccupancy();
     Bitboard getBlackOccupancy();

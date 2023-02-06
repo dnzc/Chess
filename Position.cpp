@@ -196,7 +196,10 @@ int Position::getPlysSince50() {
 }
 
 // GROUP A SKILL - complex user-defined algorithms
-void Position::makeMove(Move move) {
+// returns a 4-bit flag describing which castling rights were removed
+int Position::makeMove(Move move) {
+
+  int flag = 0;
 
   // remove target piece if it exists
   PieceType pieceToDie = m_board[move.end];
@@ -232,19 +235,51 @@ void Position::makeMove(Move move) {
     m_board[capturedPawn.getLsb()] = empty;
   }
   // if current move is a rook on (a1,h1,a8,h8), then remove corresponding castling rights
-  else if(move.piece==wr && move.start == 7) m_whiteCastleKingside = false;
-  else if(move.piece==wr && move.start == 0) m_whiteCastleQueenside = false;
-  else if(move.piece==br && move.start == 63) m_blackCastleKingside = false;
-  else if(move.piece==br && move.start == 56) m_blackCastleQueenside = false;
+  else if(move.piece==wr && move.start == 7) {
+    m_whiteCastleKingside = false;
+    flag |= 1;
+  }
+  else if(move.piece==wr && move.start == 0) {
+    m_whiteCastleQueenside = false;
+    flag |= 2;
+  }
+  else if(move.piece==br && move.start == 63) {
+    m_blackCastleKingside = false;
+    flag |= 4;
+  }
+  else if(move.piece==br && move.start == 56) {
+    m_blackCastleQueenside = false;
+    flag |= 8;
+  }
   // if current move is king, then remove corresponding castling rights
-  else if(move.piece==wk) { m_whiteCastleKingside = false; m_whiteCastleQueenside = false; }
-  else if(move.piece==bk) { m_blackCastleKingside = false; m_blackCastleQueenside = false; }
+  else if(move.piece==wk) {
+    m_whiteCastleKingside = false;
+    m_whiteCastleQueenside = false;
+    flag |= 3;
+  }
+  else if(move.piece==bk) {
+    m_blackCastleKingside = false;
+    m_blackCastleQueenside = false;
+    flag |= 12;
+  }
 
   // if current move lands on an enemy starting rook square, remove corresponding castling rights
-  if(move.end == 7 && move.piece>=6) m_whiteCastleKingside = false;
-  else if(move.end == 0 && move.piece>=6) m_whiteCastleQueenside = false;
-  else if(move.end == 63 && move.piece<6) m_blackCastleKingside = false;
-  else if(move.end == 56 && move.piece<6) m_blackCastleQueenside = false;
+  if(move.end == 7 && move.piece>=6) {
+    m_whiteCastleKingside = false;
+    flag |= 1;
+  }
+  else if(move.end == 0 && move.piece>=6) {
+    m_whiteCastleQueenside = false;
+    flag |= 2;
+  }
+  else if(move.end == 63 && move.piece<6) {
+    m_blackCastleKingside = false;
+    flag |= 4;
+  }
+  else if(move.end == 56 && move.piece<6) {
+    m_blackCastleQueenside = false;
+    flag |= 8;
+  }
 
   // if current move is castling, then move the rook
   if(move.castle) {
@@ -285,82 +320,6 @@ void Position::makeMove(Move move) {
   // flip player to move
   m_whiteToMove = !m_whiteToMove;
 
-}
-
-// makeMove but reversed
-// only for use in minimax, since does not restore 50 move counter
-void Position::undoMove(Move move, PieceType capturedPiece, Bitboard prevPassant, int prev50) {
-
-  // flip player to move
-  m_whiteToMove = !m_whiteToMove;
-
-  // 50 move rule
-  m_plysSince50 = prev50;
-
-  // if current move is castling, then move the rook back
-  if(move.castle) {
-    // white kingside castle
-    if(move.start == 4 && move.end == 6) {
-      m_pieces[wr] |= (1ull<<7);
-      m_pieces[wr] &= ~(1ull<<5);
-      m_board[7] = wr;
-      m_board[5] = empty;
-      m_whiteCastleKingside = true;
-    }
-    // white queenside castle
-    else if(move.start == 4 && move.end == 2) {
-      m_pieces[wr] |= 1ull;
-      m_pieces[wr] &= ~(1ull<<3);
-      m_board[0] = wr;
-      m_board[3] = empty;
-      m_whiteCastleQueenside = true;
-    }
-    // black kingside castle
-    else if(move.start == 60 && move.end == 62) {
-      m_pieces[br] |= (1ull<<63);
-      m_pieces[br] &= ~(1ull<<61);
-      m_board[63] = br;
-      m_board[61] = empty;
-      m_blackCastleKingside = true;
-    }
-    // black queenside castle
-    else if(move.start == 60 && move.end == 58) {
-      m_pieces[br] |= (1ull<<56);
-      m_pieces[br] &= ~(1ull<<59);
-      m_board[56] = br;
-      m_board[59] = empty;
-      m_blackCastleQueenside = true;
-    }
-  }
-
-  // if current move is double pawn push, then update en passant availability
-  if(move.piece==wp && move.end-move.start==16) {
-    m_enPassant = prevPassant;
-  } else if(move.piece==bp && move.end-move.start==-16) {
-    m_enPassant = prevPassant;
-  }
-  // if current move is en passant, then add back the captured pawn
-  else if(move.enPassant) {
-    Bitboard capturedPawn = 1ull<<move.end;
-    if(m_whiteToMove) capturedPawn >>= 8;
-    else capturedPawn <<= 8;
-    m_pieces[m_whiteToMove ? bp : wp] |= capturedPawn;
-    m_board[capturedPawn.getLsb()] = m_whiteToMove ? bp : wp;
-  }
-
-  // update square info
-  m_board[move.end] = capturedPiece;
-  m_board[move.start] = (PieceType)move.piece;
-
-  // move the piece back
-  m_pieces[move.piece] |= (1ull<<move.start);
-  if(move.promotion) m_pieces[move.promotion] &= ~(1ull<<move.end);
-  else m_pieces[move.piece] &= ~(1ull<<move.end);
-
-  // add back target piece if it exists
-  if(capturedPiece != empty) {
-    Bitboard piece = 1ull<<move.end;
-    m_pieces[capturedPiece] |= piece;
-  }
+  return flag;
 
 }

@@ -16,12 +16,14 @@ MCTSNode::MCTSNode(Position& pos, Move move) : pos(pos), move(move) {
 
 Engine::Engine() {
   m_root = std::shared_ptr<MCTSNode>(new MCTSNode(m_pos, Move(-1, -1, empty, false, false, false))); // dummy move
+  initZobrist();
 }
 
 Engine::Engine(std::string FEN) {
   Position p(FEN);
   m_pos = p;
   m_root = std::shared_ptr<MCTSNode>(new MCTSNode(m_pos, Move(-1, -1, empty, false, false, false))); // dummy move
+  initZobrist();
 }
 Position Engine::getPos() {
   return m_pos;
@@ -32,8 +34,8 @@ std::vector<Move> Engine::getLegalMoves() {
 }
 
 void Engine::makeMove(Move move) {
-  m_pos.makeMove(move);
-  m_prevMoves.push_back(move);
+  m_prevPositions.push_back(m_pos);
+  updateZobrist(move, m_pos.makeMove(move));
   m_root = std::shared_ptr<MCTSNode>(new MCTSNode(m_pos, move));
 }
 
@@ -72,7 +74,7 @@ void Engine::doOneMonteCarloStep(bool alphaBeta, std::chrono::time_point<std::ch
         curNode->children.push_back(newNode);
       }
       // pick random child
-      curNode = curNode->children[std::rand() % curNode->children.size()];
+      curNode = curNode->children[rand() % curNode->children.size()];
     }
   }
 
@@ -83,6 +85,7 @@ void Engine::doOneMonteCarloStep(bool alphaBeta, std::chrono::time_point<std::ch
   double result;
 
   if(alphaBeta) {
+    Move bestMove(-1, -1, empty, false, false, false); // dummy move
     double eval = minimaxAB(p, startTime_ms, m_inf, 2, -m_inf, m_inf); 
     result = 0.5 + 0.5*tanh(-0.15*eval); // positive eval means result should be closer to 0
   } else result = playout(p);
@@ -133,7 +136,7 @@ double Engine::playout(Position& p) {
     }
 
     // play a random legal move
-    p.makeMove(legalMoves[std::rand() % legalMoves.size()]);
+    p.makeMove(legalMoves[rand() % legalMoves.size()]);
   }
 }
 
@@ -143,25 +146,44 @@ int getTimeElapsed(std::chrono::time_point<std::chrono::steady_clock> begin) {
 
 // alpha beta minimax
 double Engine::minimaxAB(Position& p, std::chrono::time_point<std::chrono::steady_clock> startTime_ms, int timeLimit_ms, int depth, double alpha, double beta) {
+
+  // try and lookup the position to see if already evaluated
+  auto el = m_hashTable[m_zobrist % getHashTableSize()];
+  if(el.type != UNKNOWN && el.key == m_zobrist && el.depth >= depth) {
+    if(el.type == EXACT) return el.eval;
+    if(el.type == UPPER && el.eval <= alpha) return alpha;
+    if(el.type == LOWER && el.eval >= beta) return beta;
+  }
+
   std::vector<Move> legalMoves = m_gen.genMoves(p, false);
   if(legalMoves.size() == 0) {
     return m_gen.getCheckingPieces(p).getBits()==0 ? 0 : -m_inf;
   }
-
-  if(depth == 0) return capturesAB(p, startTime_ms, timeLimit_ms, alpha, beta);
-
   order(p, legalMoves);
 
-  for(Move move : legalMoves) {
-    Position newPos = p;
-    newPos.makeMove(move);
-    double evaluation = -minimaxAB(newPos, startTime_ms, timeLimit_ms, depth-1, -beta, -alpha);
-    if(evaluation >= beta) return beta+0.1; // add 0.1 so that the move which actually achieved beta is preferred
-                                            // (otherwise, if a move falls into mate in one then the engine might still play it as it will be evaluated as 0 if there exists another move that is evaluated at 0 instead of -inf)
-    if(evaluation > alpha) alpha = evaluation;
-    if(getTimeElapsed(startTime_ms) >= timeLimit_ms) return 0;
+  if(depth == 0) {
+    return capturesAB(p, startTime_ms, timeLimit_ms, alpha, beta);
   }
 
+  HashType type = UPPER;
+  for(Move move : legalMoves) {
+    Position newPos = p;
+    int castling = newPos.makeMove(move);
+    updateZobrist(move, castling);
+    double evaluation = -minimaxAB(newPos, startTime_ms, timeLimit_ms, depth-1, -beta, -alpha);
+    updateZobrist(move, castling);
+    if(evaluation >= beta) {
+      writeHash(depth, beta, LOWER);
+      return beta;
+    }
+    if(evaluation > alpha) {
+      alpha = evaluation;
+      type = EXACT;
+    }
+    if(getTimeElapsed(startTime_ms) >= timeLimit_ms) return 0;
+  }
+  
+  writeHash(depth, alpha, type);
   return alpha;
 }
 
@@ -218,30 +240,33 @@ double Engine::eval(Position& p) {
                  + p.getPieces(wr).popcnt() * m_pieceValues[wr]
                  + p.getPieces(wq).popcnt() * m_pieceValues[wq];
   int blackPawns = p.getPieces(bp).popcnt() * m_pieceValues[bp];
-  int blackOther = p.getPieces(bp).popcnt() * m_pieceValues[bp]
-                 + p.getPieces(bn).popcnt() * m_pieceValues[bn]
+  int blackOther = p.getPieces(bn).popcnt() * m_pieceValues[bn]
                  + p.getPieces(bb).popcnt() * m_pieceValues[bb]
                  + p.getPieces(br).popcnt() * m_pieceValues[br]
                  + p.getPieces(bq).popcnt() * m_pieceValues[bq];
   evaluation = blackPawns + blackOther - whitePawns - whiteOther;
   if(isWhite) evaluation *= -1;
 
-  // count non-pawn enemy pieces to determine whether endgame
-  double endgameWeight = 1 - (double)(isWhite ? blackOther : whiteOther)/29; // initially there are 29 points worth of non-pawn material
-
-  // in endgames, reward positions where the enemy king is at the board edge
-  int enemyKing = p.getPieces(isWhite ? bk : wk).getLsb();
-  int enemyRank = enemyKing>>3;
-  int enemyFile = enemyKing&7;
-  double distFromCentre = m_centreDist[enemyRank] + m_centreDist[enemyFile];
-  evaluation += 0.2 * distFromCentre * endgameWeight;
+  // count non-pawn enemy pieces to determine whether endgame 
+  double endgameWeight = 1 - (double)(isWhite ? blackOther : whiteOther)/(double)14.5; // initially there are 29 points worth of non-pawn material 
+   
+  // in endgames, reward positions where the enemy king is at the board edge (flipped for openings) 
+  int enemyKing = p.getPieces(isWhite ? bk : wk).getLsb(); 
+  int enemyRank = enemyKing>>3; 
+  int enemyFile = enemyKing&7; 
+  double enemyDistFromCentre = m_centreDist[enemyRank] + m_centreDist[enemyFile]; 
+  evaluation += 0.1 * enemyDistFromCentre * endgameWeight; 
+    
+  // in endgames, punish positions where our king is far from the centre (flipped for openings) 
+  int ourKing = p.getPieces(isWhite ? wk : bk).getLsb(); 
+  int ourRank = ourKing>>3; 
+  int ourFile = ourKing&7; 
+  double ourDistFromCentre = m_centreDist[ourRank] + m_centreDist[ourFile]; 
+  evaluation -= 0.1 * ourDistFromCentre * endgameWeight; 
 
   // in endgames, reward positions where our king is close to enemy king
-  int ourKing = p.getPieces(isWhite ? wk : bk).getLsb();
-  int ourRank = ourKing>>3;
-  int ourFile = ourKing&7;
   double distBetween = abs(ourRank - enemyRank) + abs(ourFile - enemyFile);
-  evaluation += 0.1 * (14-distBetween) * endgameWeight;
+  evaluation += 0.05 * (14-distBetween) * endgameWeight;
 
   return evaluation;
 }
@@ -268,62 +293,150 @@ Move Engine::MCTS(int timeLimit_ms, bool alphaBeta, bool verbose) {
 
 Move Engine::minimax(int timeLimit_ms, bool verbose) {
   auto begin = std::chrono::steady_clock::now();
-  std::vector<Move> legalMoves =  m_gen.genMoves(m_pos, false);
+  std::vector<Move> legalMoves = m_gen.genMoves(m_pos, false);
   if(legalMoves.size()==0) return Move(-1, -1, empty, false, false, false); // dummy move
-  std::vector< std::pair<Move,double> > moves; // move, eval
-  std::vector< std::pair<Move,double> > lastCompletedSearch;
-  moves.clear();
-  for(Move move : legalMoves) {
-    Move m = move;
-    moves.push_back(std::make_pair(m, 0));
-  }
+
+  Move lastBestMove = Move(-1, -1, empty, false, false, false);
+  double lastBestEval = -m_inf;
 
   // iterative deepening
   int curDepth = 0;
   while(true) {
-    double alpha = -m_inf;
     bool timeLimitReached = false;
-    for(int i=0; i<moves.size(); ++i) {
+
+    Move bestMove = Move(-1, -1, empty, false, false, false);
+    double bestEval = -m_inf;
+
+    for(Move m : legalMoves) {
       Position p = m_pos;
-      p.makeMove(moves[i].first);
-      double eval = -minimaxAB(p, begin, timeLimit_ms, curDepth, -m_inf, -alpha);
+      int res = p.makeMove(m);
+      updateZobrist(m, res);
+      double eval = -minimaxAB(p, begin, timeLimit_ms, curDepth, -m_inf, -bestEval);
+      updateZobrist(m, res);
+      if(eval > m_inf/2) {
+        // stop as soon as mate reached, at lowest depth possible
+        if(verbose) std::cout << "Minimax found checkmate\n";
+        return m; 
+      }
       if(getTimeElapsed(begin) >= timeLimit_ms) {
         timeLimitReached = true;
         break;
       }
-      moves[i].second = eval;
-      if(eval > alpha) {
-        alpha = eval;
+      if(eval > bestEval) {
+        bestEval = eval;
+        bestMove = m;
       }
     }
+
     if(timeLimitReached) break;
-    // sort the legal moves by the evals, for the next iterative deepening
-    std::sort(moves.begin(), moves.end(), [](const std::pair<Move,double> a, const std::pair<Move,double> b) -> bool {
-      return a.second > b.second;
-    });
-    // search was completed at this depth, update the last completed search
-    lastCompletedSearch.clear();
-    for(auto i : moves) {
-      Move m = i.first;
-      lastCompletedSearch.push_back(std::make_pair(m, i.second));
-    }
+
+    // search was completed at this depth, safe to update
+    lastBestMove = bestMove;
+    lastBestEval = bestEval;
 
     curDepth++;
+
   }
 
   if(verbose) {
-    Move m = lastCompletedSearch[0].first;
-    double bestEval = lastCompletedSearch[0].second;
-    std::cout << "Depth " << curDepth << " minimax best move: " << (char)((m.start&7)+'a') << (m.start>>3)+1
-      << (char)((m.end&7)+'a') << (m.end>>3)+1
-      << " (eval " << bestEval << ")\n";
+    std::cout << "Depth " << curDepth-1 << "-ply minimax best move:\n";
+    Move m = lastBestMove;
+    std::cout << "  " << (char)((m.start&7)+'a') << (m.start>>3)+1
+    << (char)((m.end&7)+'a') << (m.end>>3)+1
+    << ": " << lastBestEval << "\n";
   }
 
-  return lastCompletedSearch[0].first;
+  return lastBestMove;
 }
 
 int Engine::isGameOver() { // 0 if no, 1 if draw, 2 if checkmate
     if(m_gen.genMoves(m_pos, false).size()==0)
       return m_gen.getCheckingPieces(m_pos).getBits()==0 ? 1 : 2; 
     return 0;
+}
+
+uint64_t rand64() {
+  return ((long long)rand() << 32) | rand();
+}
+
+void Engine::initZobrist() {
+  // init random numbers
+  for(int i=0; i<12; ++i) {
+    for(int j=0; j<64; ++j) {
+      m_zobristValues[i][j] = rand64();
+    }
+  }
+  m_zobristBlackToMove = rand64();
+  m_zobristWhiteCastleKingside = rand64();
+  m_zobristWhiteCastleQueenside = rand64();
+  m_zobristBlackCastleKingside = rand64();
+  m_zobristBlackCastleQueenside = rand64();
+  for(int i=0; i<8; ++i)
+    m_zobristEnPassant[i] = rand64();
+
+  // calculate zobrist value
+  m_zobrist = 0;
+  for(int i=0; i<64; ++i) {
+    int piece = m_pos.whichPiece(i);
+    if(piece!=empty) m_zobrist ^= m_zobristValues[piece][i];
+  }
+  if(!m_pos.isWhiteToMove()) m_zobrist ^= m_zobristBlackToMove;
+  if(m_pos.canWhiteCastleKingside()) m_zobrist ^= m_zobristWhiteCastleKingside;
+  if(m_pos.canWhiteCastleQueenside()) m_zobrist ^= m_zobristWhiteCastleQueenside;
+  if(m_pos.canBlackCastleKingside()) m_zobrist ^= m_zobristBlackCastleKingside;
+  if(m_pos.canBlackCastleQueenside()) m_zobrist ^= m_zobristBlackCastleQueenside;
+  if(m_pos.getEnPassant()!=0) m_zobrist ^= m_zobristEnPassant[m_pos.getEnPassant().getLsb()&7];
+}
+
+void Engine::updateZobrist(Move move, int castlingRemovedFlags) {
+  m_zobrist ^= m_zobristValues[move.piece][move.start]; // toggle start square
+  m_zobrist ^= m_zobristValues[move.promotion ? move.promotion : move.piece][move.end]; // toggle end square
+  m_zobrist ^= m_zobristBlackToMove; // toggle side to move
+
+  // if castling, update rook
+  if(move.castle) {
+    switch(move.castle) {
+      case 1:
+        m_zobrist ^= m_zobristValues[wr][7];
+        m_zobrist ^= m_zobristValues[wr][5];
+        break;
+      case 2:
+        m_zobrist ^= m_zobristValues[wr][0];
+        m_zobrist ^= m_zobristValues[wr][3];
+        break;
+      case 3:
+        m_zobrist ^= m_zobristValues[br][63];
+        m_zobrist ^= m_zobristValues[br][61];
+        break;
+      case 4:
+        m_zobrist ^= m_zobristValues[br][56];
+        m_zobrist ^= m_zobristValues[br][59];
+        break;
+    }
+  }
+  // if double pawn push, update en passant
+  if(move.piece==wp && move.end-move.start==16) {
+      m_zobrist ^= m_zobristEnPassant[move.start&7];
+  } else if(move.piece==bp && move.end-move.start==-16) {
+      m_zobrist ^= m_zobristEnPassant[move.start&7];
+  }
+
+  // update castling rights
+  if(castlingRemovedFlags & 1) m_zobrist ^= m_zobristWhiteCastleKingside;
+  if(castlingRemovedFlags & 2) m_zobrist ^= m_zobristWhiteCastleQueenside;
+  if(castlingRemovedFlags & 4) m_zobrist ^= m_zobristBlackCastleKingside;
+  if(castlingRemovedFlags & 8) m_zobrist ^= m_zobristBlackCastleQueenside;
+}
+
+void Engine::writeHash(int depth, double eval, HashType type) {
+  HashTableElement el;
+  el.key = m_zobrist;
+  el.depth = depth;
+  el.eval = eval;
+  el.type = type;
+  m_hashTable[m_zobrist % getHashTableSize()] = el;
+}
+
+int Engine::getHashTableSize() {
+  return sizeof(m_hashTable) / sizeof(HashTableElement);
 }

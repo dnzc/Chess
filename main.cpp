@@ -19,9 +19,7 @@ int numPositions(int depth, Position& p, MoveGenerator& m) {
   return numPos;
 }
 
-void movegenTest(Position p) {
-  std::cout << "Move generation test:\nDepth? ";
-  int depth; std::cin >> depth;
+void movegenTest(Position p, int depth) {
   MoveGenerator m;
   int total = 0;
   for(auto move : m.genMoves(p, false)) {
@@ -87,17 +85,7 @@ Move getUserMove(Engine& e) {
   }
 }
 
-int main() {
-
-  Engine e;
-
-  // load FEN
-  std::cout << "Enter FEN to load (or press enter):\n";
-  std::string FEN; std::getline(std::cin, FEN);
-  if(!FEN.empty()) e = Engine(FEN);
-  
-  movegenTest(e.getPos());
-
+void playGame(Engine& e, bool debug) {
   // get players
   int whitePlayer;
   int whiteComputerTime;
@@ -130,14 +118,14 @@ int main() {
 
   std::cout << "\n";
   Util::display(e.getPos());
-  bool isWhite = true;
+  bool isWhite = e.getPos().isWhiteToMove();
   while(!e.isGameOver()) {
 
     switch(isWhite ? whitePlayer : blackPlayer) {
       case 0: e.makeMove(getUserMove(e)); break;
-      case 1: e.makeMove(e.MCTS(isWhite ? whiteComputerTime : blackComputerTime, false, true)); break;
-      case 2: e.makeMove(e.MCTS(isWhite ? whiteComputerTime : blackComputerTime, true, true)); break;
-      case 3: e.makeMove(e.minimax(isWhite ? whiteComputerTime : blackComputerTime, true)); break;
+      case 1: e.makeMove(e.MCTS(isWhite ? whiteComputerTime : blackComputerTime, false, debug)); break;
+      case 2: e.makeMove(e.MCTS(isWhite ? whiteComputerTime : blackComputerTime, true, debug)); break;
+      case 3: e.makeMove(e.minimax(isWhite ? whiteComputerTime : blackComputerTime, debug)); break;
     }
 
     Util::display(e.getPos());
@@ -146,6 +134,116 @@ int main() {
   }
   if(e.isGameOver() == 1) std::cout << "Draw!\n";
   else std::cout << "Checkmate, " << (isWhite ? "Black" : "White") << " wins! \n";
+}
+
+int main() {
+
+  Engine e;
+
+  // terminal interface
+  std::cout << "Engine successfully initalized.\n> ";
+  std::string line;
+  while(std::getline(std::cin, line)) {
+    int split = line.find(" ");
+    std::string command = line.substr(0, split);
+    if(command == "help") {
+      std::cout << "\nFormat:\ncommand <argument:type(default_value)> <...> | description \n--------------------------------------------------------------- \n \nhelp | get help about the CLI\n \nperft <depth:int(3)> | calculate the number of games at a certain depth\n \nposition | set/reset the current position\n \nd | display the current position\n \nmcts <time:int(3000)> | run mcts for a set number of milliseconds\n \nmctsab <time:int(3000)> | run mcts-ab for a set number of milliseconds\n \nminimax <time:int(3000)> | run minimax for a set number of milliseconds\n \ngame <debug:bool(false)> | start a game\n \nquit | quit the program \n \n";
+
+    } else if(command == "perft") {
+      bool valid = true;
+      int depth = 3;
+      if(line != command) {
+        try {
+          depth = std::stoi(line.substr(split, line.length()));
+          if(depth <= 0) {
+            std::cout << "Error: depth should be at least 1.";
+            valid = false;
+          } else if(depth >= 7) {
+            std::cout << "Are you sure? this will take a while. (y/N) ";
+            std::string x; std::getline(std::cin, x);
+            if(x!="y") valid = false;
+          }
+        } catch (...) {
+          std::cout << "Error: invalid argument.\n";
+          valid = false;
+        }
+      }
+      if(valid) movegenTest(e.getPos(), depth);
+    } else if(command == "position") {
+      // load FEN
+      std::cout << "Enter FEN to load (or press enter to load start position):\n";
+      std::string FEN; std::getline(std::cin, FEN);
+      if(!FEN.empty()) e = Engine(FEN);
+    } else if(command == "d") {
+      if(e.getPos().isWhiteToMove()) std::cout << "White";
+      else std::cout << "Black";
+      std::cout << " to move.\n";
+      Util::display(e.getPos());
+    } else if(command == "mcts") {
+      bool valid = true;
+      int time = 3000;
+      if(line != command) {
+        try {
+          time = std::stoi(line.substr(split, line.length()));
+          if(time <= 0) {
+            std::cout << "Error: time should be positive.\n";
+            valid = false;
+          } 
+        } catch (...) {
+          std::cout << "Error: invalid argument.\n";
+          valid = false;
+        }
+      }
+      if(valid) e.MCTS(time, false, true);
+    } else if(command == "mctsab") {
+      bool valid = true;
+      int time = 3000;
+      if(line != command) {
+        try {
+          time = std::stoi(line.substr(split, line.length()));
+          if(time <= 0) {
+            std::cout << "Error: time should be positive.\n";
+            valid = false;
+          } 
+        } catch (...) {
+          std::cout << "Error: invalid argument.\n";
+          valid = false;
+        }
+      }
+      if(valid) e.MCTS(time, true, true);
+    } else if(command == "minimax") {
+      bool valid = true;
+      int time = 3000;
+      if(line != command) {
+        try {
+          time = std::stoi(line.substr(split, line.length()));
+          if(time <= 0) {
+            std::cout << "Error: time should be positive.\n";
+            valid = false;
+          } 
+        } catch (...) {
+          std::cout << "Error: invalid argument.\n";
+          valid = false;
+        }
+      }
+      if(valid) e.minimax(time, true);
+    } else if(command == "game") {
+      bool debug = false;
+      if(line != command) {
+        debug = line.substr(split, line.length()) == " true";
+      }
+      playGame(e, debug);
+    } else if(command == "quit") {
+      std::cout << "Goodbye.\n";
+      return 0;
+    } else {
+      std:: cout << "Unrecognized command.\n";
+    }
+
+    std::cout << "> ";
+  }
+
+
 
   return 0;
 };
