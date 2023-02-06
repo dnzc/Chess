@@ -7,6 +7,7 @@ class Bitboard {
   public:
     Bitboard();
     Bitboard(uint64_t val);
+    // GROUP C SKILL: simple data types
     uint64_t getBits();
     int getLsb();
     int popLsb();

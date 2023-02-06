@@ -283,7 +283,6 @@ double Engine::eval(Position& p) {
   return evaluation;
 }
 
-// GROUP B SKILL: simple user-defined algorithms
 Move Engine::MCTS(int timeLimit_ms, bool alphaBeta, bool verbose) {
   auto begin = std::chrono::steady_clock::now();
   while(getTimeElapsed(begin) < timeLimit_ms) {
