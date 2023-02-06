@@ -440,3 +440,7 @@ void Engine::writeHash(int depth, double eval, HashType type) {
 int Engine::getHashTableSize() {
   return sizeof(m_hashTable) / sizeof(HashTableElement);
 }
+
+void Engine::outputZobrist() {
+  std::cout << "Zobrist hash of current position: " << m_zobrist << "\n";
+}

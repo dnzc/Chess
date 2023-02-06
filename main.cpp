@@ -175,9 +175,8 @@ int main() {
       std::string FEN; std::getline(std::cin, FEN);
       if(!FEN.empty()) e = Engine(FEN);
     } else if(command == "d") {
-      if(e.getPos().isWhiteToMove()) std::cout << "White";
-      else std::cout << "Black";
-      std::cout << " to move.\n";
+      std::cout << (e.getPos().isWhiteToMove() ? "White" : "Black") << " to move.\n";
+      e.outputZobrist();
       Util::display(e.getPos());
     } else if(command == "mcts") {
       bool valid = true;

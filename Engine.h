@@ -43,6 +43,7 @@ class Engine {
     Position getPos();
     std::vector<Move> getLegalMoves();
     int isGameOver(); // 0 for no, 1 for draw, 2 for checkmate
+    void outputZobrist();
 
   private:
     Position m_pos;
