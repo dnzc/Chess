@@ -86,6 +86,7 @@ int Bitboard::getLsb() {
   if(m_board == 0) return -1;
   uint64_t bb = m_board & -m_board; // extract the lsb
   // binary search to find index of the bit
+  // GROUP B SKILL: binary search
   int index = 0;
   if(bb>>32) { bb>>=32; index+=32; }
   if(bb>>16) { bb>>=16; index+=16; }
@@ -101,6 +102,7 @@ int Bitboard::popLsb() {
   uint64_t bb = m_board & -m_board; // extract the lsb
   m_board ^= bb; // wipe the bit
   // binary search to find index of the bit
+  // GROUP B SKILL: binary search
   int index = 0;
   if(bb>>32) { bb>>=32; index+=32; }
   if(bb>>16) { bb>>=16; index+=16; }

@@ -48,6 +48,7 @@ class Position {
 
     int m_plysSince50; // number of plys since 50 move rule was reset
 
+    // GROUP C SKILL: single-dimensional arrays
     // bitboards for each (piece type, colour) pair
     Bitboard m_pieces[12];
 

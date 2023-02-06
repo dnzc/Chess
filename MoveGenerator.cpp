@@ -25,6 +25,7 @@ MoveGenerator::MoveGenerator() {
 
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 // calculate+store knight move lookup table
 void MoveGenerator::initKnightMoveTable() {
   // knight moves
@@ -42,6 +43,7 @@ void MoveGenerator::initKnightMoveTable() {
   }
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 // calculate+store king move lookup table
 void MoveGenerator::initKingMoveTable() {
   // king moves
@@ -59,6 +61,7 @@ void MoveGenerator::initKingMoveTable() {
   }
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 // calculate+store blocker masks, for rooks or bishops
 void MoveGenerator::initRookBishopBlockerMasks(bool isRook) {
   // for each square
@@ -90,6 +93,7 @@ void MoveGenerator::initRookBishopBlockerMasks(bool isRook) {
   }
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 // calculate+store sliding piece moves between two squares
 void MoveGenerator::initPushMasks() {
   // for each square
@@ -119,6 +123,7 @@ void MoveGenerator::initPushMasks() {
   }
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 // given a mask of possible blocker positions, returns the index-th configuration of blockers (sorting lexicographically)
 Bitboard MoveGenerator::getBlockerBoard(Bitboard mask, int index) {
   // turn index into binary then distribute its bits among where the mask indicates the bits should go
@@ -136,6 +141,7 @@ Bitboard MoveGenerator::getBlockerBoard(Bitboard mask, int index) {
   return blockerBoard;
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 // given an arrangement of blockers, calculate the set of (pseudo-)legal moves
 Bitboard MoveGenerator::getRookBishopMoveBoard(bool isRook, Bitboard blockerBoard, int square) {
   Bitboard moveBoard = blockerBoard;
@@ -170,6 +176,7 @@ void MoveGenerator::findRookBishopMagics(bool isRook) {
   int bits = (isRook ? 12 : 9); // a rook has at most 12 potential blockers, bishop has at most 9
   int size = 1<<bits; // at most 2^bits possible blocker configurations: i.e. 4096 for rook, 512 for bishop
 
+  // GROUP A SKILL: hashing
   // generate all possible blocker configurations
   for(int i=0; i<64; ++i) {
     // try magic numbers until one works i.e. hashes with no collisions
@@ -209,6 +216,7 @@ void MoveGenerator::findRookBishopMagics(bool isRook) {
   }  
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 void MoveGenerator::initRookBishopMoveTable(bool isRook) {
   // number of bits needed to store all possible blocker configurations, which equals the max number of potential blockers
   int bits = (isRook ? 12 : 9); // a rook has at most 12 potential blockers, bishop has at most 9
@@ -247,6 +255,7 @@ Bitboard MoveGenerator::queenMoves(int square, Bitboard occupancy) {
   return rookMoves(square, occupancy) | bishopMoves(square, occupancy);
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 Bitboard MoveGenerator::pawnPushes(Bitboard pawns, bool isWhite, Bitboard occupancy) {
   // bitwise shift by +-8 to get places the pawns could advance to
   Bitboard moves = isWhite ? pawns<<8 : pawns>>8;
@@ -276,6 +285,7 @@ Bitboard MoveGenerator::enPassantCaptures(Bitboard pawns) {
   return left | right;
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 Bitboard MoveGenerator::getDangerSquares(Position& position) {
   Bitboard dangerSquares = 0;
 
@@ -315,6 +325,7 @@ Bitboard MoveGenerator::getDangerSquares(Position& position) {
   return dangerSquares;
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 Bitboard MoveGenerator::getCheckingPieces(Position& position) {
   Bitboard checkers = 0;
   bool isWhite = position.isWhiteToMove();

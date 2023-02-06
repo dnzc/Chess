@@ -42,7 +42,7 @@ void Engine::makeMove(Move move) {
 // GROUP A SKILL: complex user-defined algorithms
 void Engine::doOneMonteCarloStep(bool alphaBeta, std::chrono::time_point<std::chrono::steady_clock> startTime_ms) {
 
-  // GROUP A SKILL - tree traversal
+  // GROUP A SKILL: tree traversal
   // SELECTION
   std::shared_ptr<MCTSNode> curNode = m_root;
   while(curNode->children.size()>0) {
@@ -52,6 +52,7 @@ void Engine::doOneMonteCarloStep(bool alphaBeta, std::chrono::time_point<std::ch
     std::shared_ptr<MCTSNode> nextNode;
     double maxVal = -1;
     for(auto child : curNode->children) {
+      // GROUP C SKILL: simple mathematical calculations
       double val = child->score / (child->playouts+0.000001) + sqrt(2*log2(curNode->playouts) / (child->playouts+0.000001) );
       if(val>maxVal) {
         maxVal = val;
@@ -69,6 +70,7 @@ void Engine::doOneMonteCarloStep(bool alphaBeta, std::chrono::time_point<std::ch
       for(Move move : legalMoves) {
         Position nextPos = curNode->pos;
         nextPos.makeMove(move);
+        // GROUP A SKILL: linked list maintenance
         std::shared_ptr<MCTSNode> newNode = std::shared_ptr<MCTSNode>(new MCTSNode(nextPos, move));
         newNode->parent = curNode;
         curNode->children.push_back(newNode);
@@ -87,6 +89,7 @@ void Engine::doOneMonteCarloStep(bool alphaBeta, std::chrono::time_point<std::ch
   if(alphaBeta) {
     Move bestMove(-1, -1, empty, false, false, false); // dummy move
     double eval = minimaxAB(p, startTime_ms, m_inf, 2, -m_inf, m_inf); 
+    // GROUP C SKILL: simple mathematical calculations
     result = 0.5 + 0.5*tanh(-0.15*eval); // positive eval means result should be closer to 0
   } else result = playout(p);
   
@@ -104,6 +107,7 @@ void Engine::doOneMonteCarloStep(bool alphaBeta, std::chrono::time_point<std::ch
 
 }
 
+// GROUP A SKILL: complex user-defined algorithms
 double Engine::playout(Position& p) {
   while(true) {
     std::vector<Move> legalMoves = m_gen.genMoves(p, false);
@@ -144,9 +148,12 @@ int getTimeElapsed(std::chrono::time_point<std::chrono::steady_clock> begin) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin).count();
 }
 
+// GROUP A SKILL: complex user-defined algorithms
+// GROUP A SKILL: recursion
 // alpha beta minimax
 double Engine::minimaxAB(Position& p, std::chrono::time_point<std::chrono::steady_clock> startTime_ms, int timeLimit_ms, int depth, double alpha, double beta) {
-
+  
+  // GROUP A SKILL: hashing
   // try and lookup the position to see if already evaluated
   auto el = m_hashTable[m_zobrist % getHashTableSize()];
   if(el.type != UNKNOWN && el.key == m_zobrist && el.depth >= depth) {
@@ -187,6 +194,7 @@ double Engine::minimaxAB(Position& p, std::chrono::time_point<std::chrono::stead
   return alpha;
 }
 
+// GROUP A SKILL: recursion
 double Engine::capturesAB(Position& p, std::chrono::time_point<std::chrono::steady_clock> startTime_ms, int timeLimit_ms, double alpha, double beta) {
   // captures aren't forced, so check the eval before making a capture
   // otherwise, if only bad captures are available then this will evaluate the position as bad, even if other good moves exist
@@ -210,6 +218,7 @@ double Engine::capturesAB(Position& p, std::chrono::time_point<std::chrono::stea
 
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 void Engine::order(Position& p, std::vector<Move>& moves) {
   std::sort(moves.begin(), moves.end(), [&](const Move& m1, const Move& m2) -> bool {
     int score1 = 0;
@@ -229,6 +238,7 @@ void Engine::order(Position& p, std::vector<Move>& moves) {
   });
 }
 
+// GROUP A SKILL: complex user-defined algorithms
 // positive if current player is winning, negative otherwise
 double Engine::eval(Position& p) {
   double evaluation = 0;
@@ -247,6 +257,8 @@ double Engine::eval(Position& p) {
   evaluation = blackPawns + blackOther - whitePawns - whiteOther;
   if(isWhite) evaluation *= -1;
 
+  // GROUP C SKILL: simple mathematical calculations
+  
   // count non-pawn enemy pieces to determine whether endgame 
   double endgameWeight = 1 - (double)(isWhite ? blackOther : whiteOther)/(double)14.5; // initially there are 29 points worth of non-pawn material 
    
@@ -271,6 +283,7 @@ double Engine::eval(Position& p) {
   return evaluation;
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 Move Engine::MCTS(int timeLimit_ms, bool alphaBeta, bool verbose) {
   auto begin = std::chrono::steady_clock::now();
   while(getTimeElapsed(begin) < timeLimit_ms) {
@@ -291,6 +304,7 @@ Move Engine::MCTS(int timeLimit_ms, bool alphaBeta, bool verbose) {
 
 }
 
+// GROUP A SKILL: complex user-defined algorithms
 Move Engine::minimax(int timeLimit_ms, bool verbose) {
   auto begin = std::chrono::steady_clock::now();
   std::vector<Move> legalMoves = m_gen.genMoves(m_pos, false);
@@ -359,6 +373,7 @@ uint64_t rand64() {
   return ((long long)rand() << 32) | rand();
 }
 
+// GROUP B SKILL: simple user-defined algorithms
 void Engine::initZobrist() {
   // init random numbers
   for(int i=0; i<12; ++i) {
@@ -388,6 +403,7 @@ void Engine::initZobrist() {
   if(m_pos.getEnPassant()!=0) m_zobrist ^= m_zobristEnPassant[m_pos.getEnPassant().getLsb()&7];
 }
 
+// GROUP A SKILL: complex user-defined algorithms
 void Engine::updateZobrist(Move move, int castlingRemovedFlags) {
   m_zobrist ^= m_zobristValues[move.piece][move.start]; // toggle start square
   m_zobrist ^= m_zobristValues[move.promotion ? move.promotion : move.piece][move.end]; // toggle end square
@@ -428,6 +444,7 @@ void Engine::updateZobrist(Move move, int castlingRemovedFlags) {
   if(castlingRemovedFlags & 8) m_zobrist ^= m_zobristBlackCastleQueenside;
 }
 
+// GROUP A SKILL: hashing
 void Engine::writeHash(int depth, double eval, HashType type) {
   HashTableElement el;
   el.key = m_zobrist;

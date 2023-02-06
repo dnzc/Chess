@@ -19,6 +19,7 @@ int numPositions(int depth, Position& p, MoveGenerator& m) {
   return numPos;
 }
 
+// GROUP B SKILL - simple user-defined algorithms
 void movegenTest(Position p, int depth) {
   MoveGenerator m;
   int total = 0;
@@ -34,6 +35,7 @@ void movegenTest(Position p, int depth) {
   std::cout << "Total at depth " << depth << ": " << total << "\n\n";
 }
 
+// GROUP B SKILL - simple user-defined algorithms
 Move getUserMove(Engine& e) {
   std::vector<Move> legalMoves = e.getLegalMoves();
   while(true) {
@@ -85,6 +87,7 @@ Move getUserMove(Engine& e) {
   }
 }
 
+// GROUP B SKILL - simple user-defined algorithms
 void playGame(Engine& e, bool debug) {
   // get players
   int whitePlayer;
@@ -136,6 +139,7 @@ void playGame(Engine& e, bool debug) {
   else std::cout << "Checkmate, " << (isWhite ? "Black" : "White") << " wins! \n";
 }
 
+// GROUP A SKILL - complex user-defined algorithms
 int main() {
 
   Engine e;

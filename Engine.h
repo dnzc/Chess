@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <memory>
+
+// GROUP B SKILL: simple OOP model
 struct MCTSNode {
 
   MCTSNode(Position& pos, Move move);
@@ -60,6 +62,7 @@ class Engine {
     double eval(Position& p);
 
     double m_inf = 100000000;
+    // GROUP C SKILL: single dimensional arrays
     double m_pieceValues[12] = {1, 3, 3, 5, 9, 0, 1, 3, 3, 5, 9, 0}; // wp, wn, wb, etc (kings n/a)
     double m_centreDist[8] = {3, 2, 1, 0, 0, 1, 2, 3}; // distance to centre for each file/rank
 
@@ -67,11 +70,13 @@ class Engine {
     void initZobrist();
     void updateZobrist(Move move, int castlingRemovedFlags);
     void writeHash(int depth, double eval, HashType type);
+    // GROUP C SKILL: simple data types
     uint64_t m_zobrist;
     int getHashTableSize();
     HashTableElement m_hashTable[10000];
 
     // pseudorandom numbers
+    // GROUP B SKILL: multi-dimensional arrays
     uint64_t m_zobristValues[12][64]; // each piece at each square
     uint64_t m_zobristBlackToMove;
     uint64_t m_zobristWhiteCastleKingside;

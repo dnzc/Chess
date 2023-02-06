@@ -6,6 +6,7 @@ enum PieceType {
   empty
 };
 
+// GROUP B SKILL: simple OOP
 struct Move {
     Move(int start, int end, int piece, int castle, int promotion, bool enPassant)
       : start(start), end(end), piece(piece), castle(castle), promotion(promotion), enPassant(enPassant) {};

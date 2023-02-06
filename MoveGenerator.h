@@ -59,6 +59,8 @@ class MoveGenerator {
 
     // STATIC LOOKUP TABLES: the key, k, is a board square
     
+    // GROUP B SKILL: multi-dimensional arrays
+    // GROUP C SKILL: single-dimensional arrays
     // sliding piece moves between square k and another square: useful when calculating pins, and valid places to block sliding piece checks
     Bitboard m_bishopPushMasks[64][64];
     Bitboard m_rookPushMasks[64][64];

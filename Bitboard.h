@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// GROUP A SKILL - complex OOP
+// GROUP B SKILL: simple OOP
 class Bitboard {
   public:
     Bitboard();
