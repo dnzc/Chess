@@ -35,6 +35,7 @@ class Position {
     void removePieces(PieceType pt, Bitboard bb);
 
   private:
+    // GROUP C SKILL: single-dimensional arrays
     // array of which piece is on each square, so that "what piece is on this square?"
     // can be answered quickly (slow with bitboards)
     PieceType m_board[64];

@@ -56,7 +56,7 @@ Position::Position() {
 
 }
 
-// GROUP B SKILL: complex user-defined algorithms
+// GROUP A SKILL: complex user-defined algorithms
 Position::Position(std::string FEN) {
 
   for(int i=0; i<64; ++i) m_board[i] = empty;
